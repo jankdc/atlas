@@ -1,0 +1,2 @@
+fn main(arg: i32): ()
+  print(arg)
