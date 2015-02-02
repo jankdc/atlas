@@ -16,29 +16,12 @@ object parser {
       val stream = Source.fromURL(getClass.getResource("/atom.atlas"))
       val source = stream.mkString
       val tokens = lexer.lex(source)
-      tokens.foreach(println)
-        val astree = parser.parse(tokens)
-        astree.foreach{n => show(n); println()}
-      if (parser.checkTokens(tokens)) {
-      }
+      val astree = parser.parse(tokens)
+      astree.foreach{n => show(n); println()}
     }
     catch {
       case err: UnexpectedToken => println("[error] " ++ err.getMessage)
     }
-  }
-
-  private
-  def checkTokens(ts: Seq[Token]): Boolean = {
-    for (t <- ts) t match {
-      case Token(tokens.Unknown, r, l) =>
-        println(s"[error][${l.row},${l.column}]: Unknown token: $r")
-        return false
-      case Token(tokens.Badent, r, l) =>
-        println(s"[error][${l.row},${l.column}]: Bad indentation.")
-        return false
-      case others => // Do nothing
-    }
-    true
   }
 
   private
@@ -67,62 +50,57 @@ object parser {
       print("nop")
   }
 
-  private
   def parse(ts: Seq[Token]): Seq[Node] = {
-    val newl   = one(tokens.NewLine)
-    val abs    = parseAbs _
-    val let    = seq(parseLet, one(tokens.NewLine))
-    val expr   = any("a top level expression", abs, let, newl)
-    val parser = seq(rep(expr, tokens.EOF), one(tokens.EOF))
-    parser(ts) match {
-      case (nodes, rest) =>
-        nodes.filterNot(n => n.group.isInstanceOf[ast.Nop])
-    }
+    val desc = "a top level expression"
+    val expr = any(desc, parseLet, parseAbs, one(tokens.NewLine))
+    val comb = rep(expr, tokens.EOF)
+    val (ns, _) = comb(ts)
+    ns.filterNot(n => n.group.isInstanceOf[ast.Nop])
   }
 
   private
   def parseAbs(ts: Seq[Token]): Result = {
-    val fn      = one(tokens.Fn)
-    val name    = one(tokens.Name)
-    val comma   = one(tokens.Comma)
-    val params  = parenList(parseParam, comma)
-    val colon   = one(tokens.Colon)
-    val newline = one(tokens.NewLine)
-    val tp      = parseType _
-    val body    = dentList(parseStmt, newline)
+    val fn     = one(tokens.Fn)
+    val name   = one(tokens.Name)
+    val comma  = one(tokens.Comma)
+    val params = plist(parseParam, comma)
+    val colon  = one(tokens.Colon)
+    val newl   = one(tokens.NewLine)
+    val fnLhs  = seq(fn, name)
+    val fnRhs  = seq(colon, parseType, newl)
+    val body   = dlist(parseStmt)
 
-    val defLhsParser = seq(fn, name)
-    val defRhsParser = seq(colon, tp, newline)
+    val rs0 = ts
+    val (ns1, rs1) = fnLhs(rs0)
+    val (ns2, rs2) = params(rs1)
+    val (ns3, rs3) = fnRhs(rs2)
+    val (ns4, rs4) = body(rs3)
 
-    val (ns1, rm1) = defLhsParser(ts)
-    val (ns2, rm2) = params(rm1)
-    val (ns3, rm3) = defRhsParser(rm2)
-    val (ns4, rm4) = body(rm3)
-
-    ns1 ++ ns3 match {
-      case Seq(fn, name, _, tp, _) =>
-        (Seq(Node(ast.Abs(name, ns2 :+ tp, ns4), fn.line)), rm4)
-    }
+    val Seq(f, n, _, t, _) = ns1 ++ ns3
+    (Seq(Node(ast.Abs(n, ns2 :+ t, ns4), f.line)), rs4)
   }
 
   private
   def parseApp(ts: Seq[Token]): Result = {
-    val name   = one(tokens.Name)
-    val comma  = one(tokens.Comma)
-    val args   = parenList(parseAtom, comma)
-    val parser = seq(name, args)
-    parser(ts) match {
-      case (h +: rest, rem) =>
-        (Seq(Node(ast.App(h, rest), h.line)), rem)
-    }
+    val name  = one(tokens.Name)
+    val comma = one(tokens.Comma)
+    val args  = plist(parseAtom, comma)
+    val comb  = seq(name, args)
+    val (h +: rest, rs) = comb(ts)
+    (Seq(Node(ast.App(h, rest), h.line)), rs)
   }
 
   private
   def parseStmt(ts: Seq[Token]): Result = {
-    val parser = any("a statement", parseLet, parseMut, parseExpr)
-    parser(ts)
+    val newl = one(tokens.NewLine)
+    val expr = rhs(parseExpr, newl)
+    val comb = any("a statement", parseLet, parseMut, expr)
+    comb(ts)
   }
 
+  // TODO: Need to add built-in operators.
+  // Plese refer to occam's version.
+  // https://github.com/jankdc/occam
   private
   def parseExpr(ts: Seq[Token]): Result = {
     val parser = any("a simple expression", parseAtom)
@@ -131,23 +109,20 @@ object parser {
 
   private
   def parseParam(ts: Seq[Token]): Result = {
-    val name   = one(tokens.Name)
-    val colon  = one(tokens.Colon)
-    val tp     = parseType _
-    val parser = seq(name, colon, tp)
-    parser(ts) match {
-      case (Seq(name, _, tp), rest) =>
-        (Seq(Node(ast.Param(name, tp), name.line)), rest)
-    }
+    val name  = one(tokens.Name)
+    val colon = one(tokens.Colon)
+    val comb  = seq(name, colon, parseType)
+    val (Seq(n, _, tp), rs) = comb(ts)
+    (Seq(Node(ast.Param(n, tp), n.line)), rs)
   }
 
+  // TODO: Add more types!
+  // e.g. tuples, list, maps, polymorphic
   private
   def parseType(ts: Seq[Token]): Result = {
-    val parser = one(tokens.Name)
-    parser(ts) match {
-      case (Seq(name), rest) =>
-        (Seq(Node(ast.Type(name), name.line)), rest)
-    }
+    val name = one(tokens.Name)
+    val comb = any("a type", name)
+    comb(ts)
   }
 
   private
@@ -156,11 +131,10 @@ object parser {
     val mut    = one(tokens.Mut)
     val name   = one(tokens.Name)
     val assign = one(tokens.Assign)
-    val parser = seq(let, mut, name, assign, parseExpr)
-    parser(ts) match {
-      case (Seq(let, _, name, _, value), rest) =>
-        (Seq(Node(ast.Mut(name, value), let.line)), rest)
-    }
+    val newl   = one(tokens.NewLine)
+    val comb   = seq(let, mut, name, assign, parseExpr, newl)
+    val (Seq(l, _, n, _, v, _), rs) = comb(ts)
+    (Seq(Node(ast.Mut(n, v), l.line)), rs)
   }
 
   private
@@ -168,11 +142,10 @@ object parser {
     val let    = one(tokens.Let)
     val name   = one(tokens.Name)
     val assign = one(tokens.Assign)
-    val parser = seq(let, name, assign, parseExpr)
-    parser(ts) match {
-      case (Seq(let, name, _, value), rest) =>
-        (Seq(Node(ast.Let(name, value), let.line)), rest)
-    }
+    val newl   = one(tokens.NewLine)
+    val comb   = seq(let, name, assign, parseExpr, newl)
+    val (Seq(l, n, _, v, _), rs) = comb(ts)
+    (Seq(Node(ast.Let(n, v), l.line)), rs)
   }
 
   private
@@ -187,46 +160,34 @@ object parser {
   }
 
   private
-  def parenList(item: Parsec, delim: Parsec): Parsec =
+  def plist(item: Parsec, delim: Parsec): Parsec =
     (ts: Seq[Token]) => {
       val parenL = one(tokens.ParenL)
       val parenR = one(tokens.ParenR)
 
       val (_, r1) = parenL(ts)
-
-      val single = try Some(item(r1)) catch {
-        case err: UnexpectedToken => None
-      }
+      val single = try Some(item(r1)) catch { case _:UnexpectedToken => None }
 
       single match {
         case None =>
           val (_, r2) = parenR(r1)
           (Seq(), r2)
         case Some((n2, r2)) =>
-          val items  = rep(una(delim, item), tokens.ParenR)
-          val parser = seq(items, parenR)
+          val parser   = rep(lhs(delim, item), tokens.ParenR)
           val (n3, r3) = parser(r2)
           (n2 ++ n3, r3)
       }
     }
 
   private
-  def dentList(item: Parsec, delim: Parsec): Parsec =
+  def dlist(item: Parsec): Parsec =
     (ts: Seq[Token]) => {
       val indent = one(tokens.Indent)
       val dedent = one(tokens.Dedent)
-      val items  = rep(unaRhs(item, delim), tokens.Dedent)
-      val parser = seq(indent, items)
-      parser(ts) match {
-        case (h +: rest, rem) =>
-          val (_, finalRem) = dedent(rem)
-          (rest, finalRem)
-      }
+      val items  = rep(item, tokens.Dedent)
+      val comb   = lhs(indent, items)
+      comb(ts)
     }
-
-  private
-  def lst(item: Parsec, delim: Parsec): Parsec =
-    seqOpt(item, repOpt(una(delim, item)))
 
   private
   def rep(parsec: Parsec, end: tokens.Group): Parsec = {
@@ -247,42 +208,13 @@ object parser {
           case None => false
         }
       }
-      (buffer.toSeq, remain)
-    }
-  }
 
-  private
-  def rep(parsec: Parsec): Parsec = {
-    (ts: Seq[Token]) => {
-      var buffer = Buffer[Node]()
-      var remain = ts
-      while (! remain.isEmpty) {
-        val (nodes, rm) = parsec(remain)
-        buffer ++= nodes
-        remain = rm
+      if (reached) {
+        (buffer.toSeq, remain.tail)
       }
-      (buffer.toSeq, remain)
-    }
-  }
-
-  private
-  def repOpt(parsec: Parsec): Parsec = {
-    (ts: Seq[Token]) => {
-      var buffer = Buffer[Node]()
-      var remain = ts
-      try {
-        while (! remain.isEmpty) {
-          val (nodes, rm) = parsec(remain)
-          buffer ++= nodes
-          remain = rm
-        }
+      else {
+        (buffer.toSeq, remain)
       }
-      catch {
-        case err: UnexpectedToken
-          if err.parsed == remain.length =>
-            // Do nothing
-      }
-      (buffer.toSeq, remain)
     }
   }
 
@@ -311,9 +243,8 @@ object parser {
     }
   }
 
-  // NOTE: Drops lhs result.
   private
-  def una(lhs: Parsec, rhs: Parsec): Parsec = {
+  def lhs(lhs: Parsec, rhs: Parsec): Parsec = {
     (ts: Seq[Token]) => {
       val (_, r1) = lhs(ts)
       val (n, r2) = rhs(r1)
@@ -321,9 +252,8 @@ object parser {
     }
   }
 
-  // NOTE: Drops lhs result.
   private
-  def unaRhs(lhs: Parsec, rhs: Parsec): Parsec = {
+  def rhs(lhs: Parsec, rhs: Parsec): Parsec = {
     (ts: Seq[Token]) => {
       val (n, r1) = lhs(ts)
       val (_, r2) = rhs(r1)
@@ -331,7 +261,6 @@ object parser {
     }
   }
 
-  // NOTE: Drops lhs and rhs results.
   private
   def bin(lhs: Parsec, mid: Parsec, rhs: Parsec): Parsec = {
     (ts: Seq[Token]) => {
@@ -350,29 +279,6 @@ object parser {
           val (r, newRem) = parsec(rem)
           (res ++ r, newRem)
       }
-    }
-  }
-
-  private
-  def seqOpt(parsecs: Parsec*): Parsec = {
-    (ts: Seq[Token]) => {
-      var buffer = Buffer[Node]()
-      var remain = ts
-
-      try {
-        for (parsec <- parsecs) {
-          val (nodes, rm) = parsec(remain)
-          buffer ++= nodes
-          remain = rm
-        }
-      }
-      catch {
-        case err: UnexpectedToken
-          if err.parsed == remain.length =>
-            // Do nothing
-      }
-
-      (buffer.toSeq, remain)
     }
   }
 
