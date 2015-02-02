@@ -1,17 +1,16 @@
-package atlas.token
+package com.jankdc.atlas.tokens
 
 import util.matching.Regex
 
-case class Token(group: Group, raw: String, row: Int, column: Int)
-
-sealed abstract class Group(val re: Regex)
+sealed abstract class Group(val pattern: Regex)
 case object Name    extends Group("[a-zA-Z]\\w*".r)
 case object Number  extends Group("(0)|([1-9][0-9]*)".r)
-case object Func    extends Group("fn".r)
+case object Fn      extends Group("fn".r)
 case object Let     extends Group("let".r)
 case object Mut     extends Group("mut".r)
 case object ParenL  extends Group("\\(".r)
 case object ParenR  extends Group("\\)".r)
+case object Assign  extends Group("=".r)
 case object Comma   extends Group(",".r)
 case object Colon   extends Group(":".r)
 case object Space   extends Group(" ".r)

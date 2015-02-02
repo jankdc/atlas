@@ -1,0 +1,5 @@
+fn main(args: i32, argv: i64): nat
+  let name = 2345
+  let mut john = 214
+  name
+

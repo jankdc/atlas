@@ -1,10 +1,10 @@
-package atlas
+package com.jankdc.atlas
 
-package object token {
+package object tokens {
   // Used for finding the longest matched string against an RE.
   // Top-most has higher priority.
   val groups = Seq[Group](
-    Func,
+    Fn,
     Let,
     Mut,
     Name,
@@ -12,6 +12,7 @@ package object token {
     ParenL,
     ParenR,
     Comma,
+    Assign,
     Colon,
     Space,
     NewLine,
