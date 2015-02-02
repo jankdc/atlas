@@ -45,7 +45,7 @@ object lexer {
       buffer = buffer.substring(raw.length)
     }
 
-    tokens.toSeq
+    tokens.toSeq :+ Token(EOF, "", Line(row, column))
   }
 
   // Generates indentation based on the amount of spaces

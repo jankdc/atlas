@@ -16,14 +16,32 @@ object parser {
       val stream = Source.fromURL(getClass.getResource("/atom.atlas"))
       val source = stream.mkString
       val tokens = lexer.lex(source)
-      val astree = parser.parse(tokens)
-      astree.foreach{n => show(n); println()}
+      tokens.foreach(println)
+        val astree = parser.parse(tokens)
+        astree.foreach{n => show(n); println()}
+      if (parser.checkTokens(tokens)) {
+      }
     }
     catch {
       case err: UnexpectedToken => println("[error] " ++ err.getMessage)
     }
   }
 
+  private
+  def checkTokens(ts: Seq[Token]): Boolean = {
+    for (t <- ts) t match {
+      case Token(tokens.Unknown, r, l) =>
+        println(s"[error][${l.row},${l.column}]: Unknown token: $r")
+        return false
+      case Token(tokens.Badent, r, l) =>
+        println(s"[error][${l.row},${l.column}]: Bad indentation.")
+        return false
+      case others => // Do nothing
+    }
+    true
+  }
+
+  private
   def show(node: Node): Unit = node match {
     case Node(ast.Abs(n, ps, bd), _) =>
       show(n); print(": ")
@@ -55,7 +73,7 @@ object parser {
     val abs    = parseAbs _
     val let    = seq(parseLet, one(tokens.NewLine))
     val expr   = any("a top level expression", abs, let, newl)
-    val parser = rep(expr)
+    val parser = seq(rep(expr, tokens.EOF), one(tokens.EOF))
     parser(ts) match {
       case (nodes, rest) =>
         nodes.filterNot(n => n.group.isInstanceOf[ast.Nop])
@@ -66,16 +84,12 @@ object parser {
   def parseAbs(ts: Seq[Token]): Result = {
     val fn      = one(tokens.Fn)
     val name    = one(tokens.Name)
-    val parenL  = one(tokens.ParenL)
-    val parenR  = one(tokens.ParenR)
     val comma   = one(tokens.Comma)
-    val params  = bin(parenL, lst(parseParam, comma), parenR)
+    val params  = parenList(parseParam, comma)
     val colon   = one(tokens.Colon)
     val newline = one(tokens.NewLine)
-    val indent  = one(tokens.Indent)
-    val dedent  = one(tokens.Dedent)
     val tp      = parseType _
-    val body    = bin(indent, repOpt(parseStmt), dedent)
+    val body    = dentList(parseStmt, newline)
 
     val defLhsParser = seq(fn, name)
     val defRhsParser = seq(colon, tp, newline)
@@ -94,11 +108,9 @@ object parser {
   private
   def parseApp(ts: Seq[Token]): Result = {
     val name   = one(tokens.Name)
-    val parenL = one(tokens.ParenL)
-    val parenR = one(tokens.ParenR)
     val comma  = one(tokens.Comma)
-    val args   = lst(parseAtom, comma)
-    val parser = seq(name, bin(parenL, args, parenR))
+    val args   = parenList(parseAtom, comma)
+    val parser = seq(name, args)
     parser(ts) match {
       case (h +: rest, rem) =>
         (Seq(Node(ast.App(h, rest), h.line)), rem)
@@ -107,12 +119,8 @@ object parser {
 
   private
   def parseStmt(ts: Seq[Token]): Result = {
-    val comps   = any("a statement", parseLet, parseMut, parseExpr)
-    val newline = one(tokens.NewLine)
-    val parser  = seq(comps, newline)
-    parser(ts) match {
-      case (Seq(stmt, _), rest) => (Seq(stmt), rest)
-    }
+    val parser = any("a statement", parseLet, parseMut, parseExpr)
+    parser(ts)
   }
 
   private
@@ -179,8 +187,69 @@ object parser {
   }
 
   private
+  def parenList(item: Parsec, delim: Parsec): Parsec =
+    (ts: Seq[Token]) => {
+      val parenL = one(tokens.ParenL)
+      val parenR = one(tokens.ParenR)
+
+      val (_, r1) = parenL(ts)
+
+      val single = try Some(item(r1)) catch {
+        case err: UnexpectedToken => None
+      }
+
+      single match {
+        case None =>
+          val (_, r2) = parenR(r1)
+          (Seq(), r2)
+        case Some((n2, r2)) =>
+          val items  = rep(una(delim, item), tokens.ParenR)
+          val parser = seq(items, parenR)
+          val (n3, r3) = parser(r2)
+          (n2 ++ n3, r3)
+      }
+    }
+
+  private
+  def dentList(item: Parsec, delim: Parsec): Parsec =
+    (ts: Seq[Token]) => {
+      val indent = one(tokens.Indent)
+      val dedent = one(tokens.Dedent)
+      val items  = rep(unaRhs(item, delim), tokens.Dedent)
+      val parser = seq(indent, items)
+      parser(ts) match {
+        case (h +: rest, rem) =>
+          val (_, finalRem) = dedent(rem)
+          (rest, finalRem)
+      }
+    }
+
+  private
   def lst(item: Parsec, delim: Parsec): Parsec =
     seqOpt(item, repOpt(una(delim, item)))
+
+  private
+  def rep(parsec: Parsec, end: tokens.Group): Parsec = {
+    (ts: Seq[Token]) => {
+      var buffer = Buffer[Node]()
+      var remain = ts
+      var reached = remain.headOption match {
+        case Some(Token(g, _, _)) => (g == end)
+        case None => false
+      }
+
+      while (! remain.isEmpty && ! reached) {
+        val (nodes, rm) = parsec(remain)
+        buffer ++= nodes
+        remain = rm
+        reached = remain.headOption match {
+          case Some(Token(g, _, _)) => (g == end)
+          case None => false
+        }
+      }
+      (buffer.toSeq, remain)
+    }
+  }
 
   private
   def rep(parsec: Parsec): Parsec = {
@@ -248,6 +317,16 @@ object parser {
     (ts: Seq[Token]) => {
       val (_, r1) = lhs(ts)
       val (n, r2) = rhs(r1)
+      (n, r2)
+    }
+  }
+
+  // NOTE: Drops lhs result.
+  private
+  def unaRhs(lhs: Parsec, rhs: Parsec): Parsec = {
+    (ts: Seq[Token]) => {
+      val (n, r1) = lhs(ts)
+      val (_, r2) = rhs(r1)
       (n, r2)
     }
   }
