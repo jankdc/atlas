@@ -60,8 +60,9 @@ object lexer {
 
     var buffer = Buffer[Token]()
     var levels = Buffer[Int](0)
+    val lines = tokens.split(NewLine).filter(line => line.length > 1)
 
-    for (ts <- tokens.split(NewLine)) {
+    for (ts <- lines) {
       val spaces = ts.takeWhile(t => t.group == Space)
 
       spaces.length match {
