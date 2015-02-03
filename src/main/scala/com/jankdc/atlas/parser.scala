@@ -17,7 +17,7 @@ object parser {
       val source = stream.mkString
       val tokens = lexer.lex(source)
       val astree = parser.parse(tokens)
-      astree.foreach{n => show(n); println()}
+      show(astree)
     }
     catch {
       case err: UnexpectedToken => println("[error] " ++ err.getMessage)
@@ -26,36 +26,41 @@ object parser {
 
   private
   def show(node: Node): Unit = node match {
-    case Node(ast.Abs(n, ps, bd), _) =>
+    case Node(nodes.Top(ns), lines) =>
+      ns.foreach{n => show(n); println()}
+    case Node(nodes.Abs(n, ps, bd), _) =>
       show(n); print(": ")
       ps.foreach{p => show(p); print(" ")}
       println()
       bd.foreach{b => print("  "); show(b); println()}
-    case Node(ast.Param(l, r), _) =>
+    case Node(nodes.Param(l, r), _) =>
       print("("); show(l); print(":"); show(r); print(")")
-    case Node(ast.App(n, args), _) =>
+    case Node(nodes.App(n, args), _) =>
       show(n)
       print("("); args.foreach{a => show(a); print(" ")}; print(")")
-    case Node(ast.Type(n), _) =>
+    case Node(nodes.Type(n), _) =>
       show(n)
-    case Node(ast.Let(n, rv), _) =>
+    case Node(nodes.Let(n, rv), _) =>
       show(n); print(" = "); show(rv)
-    case Node(ast.Mut(n, rv), _) =>
+    case Node(nodes.Mut(n, rv), _) =>
       show(n); print(" = "); show(rv)
-    case Node(ast.Name(n), _) =>
+    case Node(nodes.Name(n), _) =>
       print(n)
-    case Node(ast.Number(n), _) =>
+    case Node(nodes.Number(n), _) =>
       print(n)
-    case Node(ast.Nop(), _) =>
+    case Node(nodes.Nop(), _) =>
       print("nop")
   }
 
-  def parse(ts: Seq[Token]): Seq[Node] = {
+  def parse(ts: Seq[Token]): Node = {
     val desc = "a top level expression"
-    val expr = any(desc, parseLet, parseAbs, one(tokens.NewLine))
+    val expr = any(desc, parseLet, parseAbs, opt(tokens.NewLine))
     val comb = rep(expr, tokens.EOF)
     val (ns, _) = comb(ts)
-    ns.filterNot(n => n.group.isInstanceOf[ast.Nop])
+    ns match {
+      case h +: tail => Node(nodes.Top(ns), h.line)
+      case empty => Node(nodes.Top(ns), Line(1, 1))
+    }
   }
 
   private
@@ -77,7 +82,7 @@ object parser {
     val (ns4, rs4) = body(rs3)
 
     val Seq(f, n, _, t, _) = ns1 ++ ns3
-    (Seq(Node(ast.Abs(n, ns2 :+ t, ns4), f.line)), rs4)
+    (Seq(Node(nodes.Abs(n, ns2 :+ t, ns4), f.line)), rs4)
   }
 
   private
@@ -87,7 +92,7 @@ object parser {
     val args  = plist(parseAtom, comma)
     val comb  = seq(name, args)
     val (h +: rest, rs) = comb(ts)
-    (Seq(Node(ast.App(h, rest), h.line)), rs)
+    (Seq(Node(nodes.App(h, rest), h.line)), rs)
   }
 
   private
@@ -113,7 +118,7 @@ object parser {
     val colon = one(tokens.Colon)
     val comb  = seq(name, colon, parseType)
     val (Seq(n, _, tp), rs) = comb(ts)
-    (Seq(Node(ast.Param(n, tp), n.line)), rs)
+    (Seq(Node(nodes.Param(n, tp), n.line)), rs)
   }
 
   // TODO: Add more types!
@@ -134,7 +139,7 @@ object parser {
     val newl   = one(tokens.NewLine)
     val comb   = seq(let, mut, name, assign, parseExpr, newl)
     val (Seq(l, _, n, _, v, _), rs) = comb(ts)
-    (Seq(Node(ast.Mut(n, v), l.line)), rs)
+    (Seq(Node(nodes.Mut(n, v), l.line)), rs)
   }
 
   private
@@ -145,7 +150,7 @@ object parser {
     val newl   = one(tokens.NewLine)
     val comb   = seq(let, name, assign, parseExpr, newl)
     val (Seq(l, n, _, v, _), rs) = comb(ts)
-    (Seq(Node(ast.Let(n, v), l.line)), rs)
+    (Seq(Node(nodes.Let(n, v), l.line)), rs)
   }
 
   private
@@ -155,8 +160,8 @@ object parser {
     val number = one(tokens.Number)
     val paren  = bin(parenL, parseAtom, parenR)
     val name   = one(tokens.Name)
-    val parser = any("an atomic expression", number, paren, name)
-    parser(ts)
+    val comb   = any("an atomic expression", number, paren, name)
+    comb(ts)
   }
 
   private
@@ -173,8 +178,8 @@ object parser {
           val (_, r2) = parenR(r1)
           (Seq(), r2)
         case Some((n2, r2)) =>
-          val parser   = rep(lhs(delim, item), tokens.ParenR)
-          val (n3, r3) = parser(r2)
+          val comb = rep(lhs(delim, item), tokens.ParenR)
+          val (n3, r3) = comb(r2)
           (n2 ++ n3, r3)
       }
     }
@@ -190,7 +195,7 @@ object parser {
     }
 
   private
-  def rep(parsec: Parsec, end: tokens.Group): Parsec = {
+  def rep(parsec: Parsec, end: tokens.Group): Parsec =
     (ts: Seq[Token]) => {
       var buffer = Buffer[Node]()
       var remain = ts
@@ -216,10 +221,9 @@ object parser {
         (buffer.toSeq, remain)
       }
     }
-  }
 
   private
-  def any(msg: String, parsecs: Parsec*): Parsec = {
+  def any(msg: String, parsecs: Parsec*): Parsec =
     (ts: Seq[Token]) => {
       var result = Option[Result](null)
       var furthest = UnexpectedToken(ts.length, "")
@@ -241,38 +245,34 @@ object parser {
           throw report(ts, msg)
       }
     }
-  }
 
   private
-  def lhs(lhs: Parsec, rhs: Parsec): Parsec = {
+  def lhs(lhs: Parsec, rhs: Parsec): Parsec =
     (ts: Seq[Token]) => {
       val (_, r1) = lhs(ts)
       val (n, r2) = rhs(r1)
       (n, r2)
     }
-  }
 
   private
-  def rhs(lhs: Parsec, rhs: Parsec): Parsec = {
+  def rhs(lhs: Parsec, rhs: Parsec): Parsec =
     (ts: Seq[Token]) => {
       val (n, r1) = lhs(ts)
       val (_, r2) = rhs(r1)
       (n, r2)
     }
-  }
 
   private
-  def bin(lhs: Parsec, mid: Parsec, rhs: Parsec): Parsec = {
+  def bin(lhs: Parsec, mid: Parsec, rhs: Parsec): Parsec =
     (ts: Seq[Token]) => {
       val (_, r1) = lhs(ts)
       val (n, r2) = mid(r1)
       val (_, r3) = rhs(r2)
       (n, r3)
     }
-  }
 
   private
-  def seq(parsecs: Parsec*): Parsec = {
+  def seq(parsecs: Parsec*): Parsec =
     (ts: Seq[Token]) => {
       parsecs.foldLeft((Seq[Node](), ts)) {
         case ((res, rem), parsec) =>
@@ -280,26 +280,33 @@ object parser {
           (res ++ r, newRem)
       }
     }
-  }
 
   private
-  def one(group: tokens.Group): Parsec = {
+  def one(group: tokens.Group): Parsec =
     (ts: Seq[Token]) => ts match {
       case token +: rest if token.group == group =>
         (Seq(wrap(token)), rest)
       case ts =>
         throw report(ts, s"$group")
     }
-  }
+
+  private
+  def opt(group: tokens.Group): Parsec =
+    (ts: Seq[Token]) => ts match {
+      case token +: rest if token.group == group =>
+        (Seq(), rest)
+      case ts =>
+        throw report(ts, s"$group")
+    }
 
   private
   def wrap(token: Token): Node = token match {
     case Token(tokens.Name, raw, line) =>
-      Node(ast.Name(raw), line)
+      Node(nodes.Name(raw), line)
     case Token(tokens.Number, raw, line) =>
-      Node(ast.Number(raw.toInt), line)
+      Node(nodes.Number(raw.toInt), line)
     case Token(others, raw, line) =>
-      Node(ast.Nop(), line)
+      Node(nodes.Nop(), line)
   }
 
   private
