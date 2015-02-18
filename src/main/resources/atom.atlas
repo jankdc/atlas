@@ -1,5 +1,12 @@
-fn main(args: i32, argv: i64): nat
+fn main(args: Int): Int
   let name = 2345
   let mut john = 214
-  name
-  2345
+  23
+
+fn fibo(n: Int): Int
+  n
+
+fn fibo(m: Int, h: Int): Int
+  1234
+  m
+  h
