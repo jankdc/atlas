@@ -39,8 +39,6 @@ class Checker(outer: Context = new Context()) {
         assert(false, "ERROR: UNKNOWN PARAM NODE")
     }
 
-    println(termTypes)
-
     val block = new Checker(inner)
     val bodyTypes = n.body.map(block.check)
     val lhs = termTypes.last

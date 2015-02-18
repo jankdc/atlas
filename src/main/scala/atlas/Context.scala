@@ -53,6 +53,8 @@ class Context
 
   def mkType(n: Node): Type =
     n match {
+      case nodes.Integer(_) =>
+        types.Var("Int")
       case nodes.Param(_, tp) =>
         mkType(tp)
       case nodes.NameId(nm) if isTypeBound(types.Var(nm)) =>
