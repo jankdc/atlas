@@ -1,0 +1,4 @@
+static FOO = 2 as Int
+
+fn main(args: Int): Int
+  args
