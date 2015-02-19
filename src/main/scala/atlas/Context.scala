@@ -6,14 +6,14 @@ import collection.mutable
 
 class Context
 (
-  private val defTypes: mutable.Set[Type] = mutable.Set(),
+  private val simTypes: mutable.Set[Type] = mutable.Set(),
   private val varBinds: mutable.Map[String, Type] = mutable.Map(),
   private val absBinds: mutable.Map[String, Seq[types.Abs]] = mutable.Map()
 )
 {
   // PRELUDE TYPES
-  defTypes += types.Var("Int")
-  defTypes += types.Var("Unit")
+  simTypes += types.Var("Int")
+  simTypes += types.Var("Unit")
 
 
   def addVar(tag: Tag, tp: Type): Unit =
@@ -57,23 +57,30 @@ class Context
         types.Var(nm)
       case nodes.NameId(nm) =>
         throw CheckerError(s"[${n.pos}]: Type not found: $nm")
+      case nodes.Lam(nodes) =>
+        types.Abs(nodes map mkType)
       case others =>
         assert(false, s"ERROR: NODE MUST BE TYPEABLE: $n")
         ???
     }
 
+
   override def clone(): Context = new Context(
-    mutable.Set(defTypes.toSeq: _*),
+    mutable.Set(simTypes.toSeq: _*),
     mutable.Map(varBinds.toSeq: _*),
     mutable.Map(absBinds.toSeq: _*)
   )
 
   private type Tag = Node with Bound
+  private def isTypeBound(tp: Type): Boolean = tp match {
+    case types.Var(_) => simTypes.contains(tp)
+    case types.Abs(m) => m.forall(simTypes.contains(_))
+  }
   private def isAbsBound(s: String) = ! abs(s).isEmpty
   private def isAbsBound(s: String, tp: types.Abs) = abs(s).filter(_ == tp).length == 1
   private def isAbsLegal(s: String, tp: types.Abs) = abs(s).forall(_.terms.last == tp.terms.last)
   private def isAbsLegal(s: String, ts: Seq[Type]) = abs(s).filter(_.terms.init == ts).length == 1
   private def isVarBound(s: String) = ! varBinds.get(s).isEmpty
-  private def isTypeBound(tp: Type) = defTypes.contains(tp)
-  private def abs(s: String) = absBinds.get(s) getOrElse Seq()
+  private def abs(s: String) = absBinds.get(s) getOrElse Seq() ++
+    varBinds.values.flatMap { case n: types.Abs => Some(n); case _ => None }
 }

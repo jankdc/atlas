@@ -73,7 +73,14 @@ object Parser {
   // e.g. tuples, list, maps, polymorphic
   private
   def parseType(ts: Seq[Token]): Result = {
-    any("a type", one(patterns.NameId))(ts)
+    val simple = one(patterns.NameId)
+    val others = rep(seq(key("->"), simple))
+    val parser = seq(simple, others)
+    val (types, rs) = parser(ts)
+    types match {
+      case Seq(one) => (types, rs)
+      case morethan => (Seq(nodes.Lam(types)(ts.head.pos)), rs)
+    }
   }
 
   private
@@ -166,6 +173,27 @@ object Parser {
         val (nodes, rm) = p(remain)
         buffer ++= nodes
         remain = rm
+      }
+
+      (buffer.toSeq, remain)
+    }
+
+  private
+  def rep(p: Parsec): Parsec =
+    (ts: Seq[Token]) => {
+      var buffer = Buffer[Node]()
+      var remain = ts
+
+      try {
+        while (true) {
+          val (nodes, rm) = p(remain)
+          buffer ++= nodes
+          remain = rm
+        }
+      }
+      catch {
+        case err: ParserError if remain.length == err.count =>
+          // Do nothing
       }
 
       (buffer.toSeq, remain)

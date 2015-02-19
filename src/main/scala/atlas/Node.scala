@@ -14,6 +14,11 @@ case class Let(val name: String, value: Node)
   override def toString = s"let $name = $value"
 }
 
+case class Lam(terms: Seq[Node])
+ (implicit val pos: SourcePos) extends Node {
+  override def toString = terms.mkString(" -> ")
+}
+
 case class Mut(val name: String, value: Node)
  (implicit val pos: SourcePos) extends Node with Bound {
   override def toString = s"let mut $name = $value"

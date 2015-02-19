@@ -19,9 +19,6 @@ class Checker(outer: Context = new Context()) {
 
   private def check(n: nodes.Let): Type = {
     ctx.addVar(n, check(n.value))
-
-    println(na)
-
     types.Var("Unit")
   }
 
@@ -37,10 +34,8 @@ class Checker(outer: Context = new Context()) {
         val tp = inner.mkType(tn)
         inner.addVar(param, tp)
         tp
-      case retval@nodes.NameId(nm) =>
-        inner.mkType(retval)
       case others =>
-        assert(false, s"ERROR: UNKNOWN PARAM NODE")
+        inner.mkType(others)
     }
 
     n.body.foreach {
