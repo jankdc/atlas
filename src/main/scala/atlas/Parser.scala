@@ -50,7 +50,15 @@ object Parser {
   def parseStmt(ts: Seq[Token]): Result = {
     val atomStmt = seq(parseAtom, one(patterns.NewLine))
     val callStmt = seq(parseApp, one(patterns.NewLine))
-    val parser = any("a statement", atomStmt, callStmt, parseLet, parseMut)
+    val passStmt = seq(key("pass"), one(patterns.NewLine))
+    val parser = any("a statement",
+      atomStmt,
+      callStmt,
+      passStmt,
+      parseLet,
+      parseMut,
+      parseFun)
+
     parser(ts)
   }
 
@@ -97,7 +105,7 @@ object Parser {
     val anymsg = "an atomic expression"
     val integr = one(patterns.Integer)
     val nameid = one(patterns.NameId)
-    val parser = any(anymsg, integr, parens, nameid)
+    val parser = any(anymsg, integr, parens, nameid, parseApp)
     parser(ts)
   }
 
@@ -247,6 +255,8 @@ object Parser {
   private
   def key(s: String): Parsec =
     (ts: Seq[Token]) => ts match {
+      case tokens.Reserved("pass") +: rest if "pass" == s =>
+        (Seq(nodes.Nop()(ts.head.pos)), rest)
       case tokens.Reserved(n) +: rest if n == s =>
         (Seq(), rest)
       case others =>

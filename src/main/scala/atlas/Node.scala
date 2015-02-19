@@ -32,7 +32,7 @@ case class App(val name: String, args: Seq[Node])
 case class Fun(val name: String, terms: Seq[Node], body: Seq[Node])
  (implicit val pos: SourcePos) extends Node with Bound {
   override def toString = {
-    val indent = "\n" + (" " * 2)
+    val indent = "\n" + (" " * (2 + pos.column))
     val mainNd = body.mkString(s"$indent")
     val params = terms.init.mkString(", ")
     val retval = terms.last

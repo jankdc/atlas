@@ -86,6 +86,7 @@ object Pattern {
     buffer += "(static)"
     buffer += "(\\()"
     buffer += "(\\))"
+    buffer += "(pass)"
     buffer += "(mut)"
     buffer += "(let)"
     buffer += "(fn)"

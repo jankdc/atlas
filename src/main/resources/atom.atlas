@@ -1,6 +1,11 @@
 fn main(args: Int): Int
-  let name = 2345
-  let mut john = 214
+
+  let name = foo(2)
+  let mut john = fibo(45)
+
+  fn foo(n: Int): Unit
+    pass
+
   23
 
 fn fibo(n: Int): Int

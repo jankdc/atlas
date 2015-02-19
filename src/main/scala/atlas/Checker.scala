@@ -19,6 +19,9 @@ class Checker(outer: Context = new Context()) {
 
   private def check(n: nodes.Let): Type = {
     ctx.addVar(n, check(n.value))
+
+    println(na)
+
     types.Var("Unit")
   }
 
@@ -31,12 +34,25 @@ class Checker(outer: Context = new Context()) {
     val inner = ctx.clone()
     val termTypes = n.terms.map {
       case param@nodes.Param(nm, tn) =>
-        inner.addVar(param, inner.mkType(param))
-        inner.mkType(param)
+        val tp = inner.mkType(tn)
+        inner.addVar(param, tp)
+        tp
       case retval@nodes.NameId(nm) =>
         inner.mkType(retval)
       case others =>
-        assert(false, "ERROR: UNKNOWN PARAM NODE")
+        assert(false, s"ERROR: UNKNOWN PARAM NODE")
+    }
+
+    n.body.foreach {
+      case fun@nodes.Fun(nm, ts, _) =>
+        assert(ts.init.forall(_.isInstanceOf[nodes.Param]))
+        val ps = ts.init.asInstanceOf[Seq[nodes.Param]].map(p => inner.mkType(p.typename))
+        val rettyp = inner.mkType(ts.last)
+        val abs = types.Abs(ps :+ rettyp)
+        inner.addAbs(fun, abs)
+        abs
+      case others =>
+        // Do nothing...
     }
 
     val block = new Checker(inner)
@@ -53,11 +69,16 @@ class Checker(outer: Context = new Context()) {
   private def check(n: nodes.Top): Type = {
     n.nodes.foreach {
       case fun@nodes.Fun(nm, ts, _) =>
-        ctx.addAbs(fun, types.Abs(ts map ctx.mkType))
+        assert(ts.init.forall(_.isInstanceOf[nodes.Param]))
+        val ps = ts.init.asInstanceOf[Seq[nodes.Param]].map(p => ctx.mkType(p.typename))
+        val rettyp = ctx.mkType(ts.last)
+        val abs = types.Abs(ps :+ rettyp)
+        ctx.addAbs(fun, abs)
+        abs
       case let@nodes.Let(nm, value) =>
         ctx.addVar(let, check(value))
       case others =>
-        assert(false, "ERROR: UNKNOWN TOP LEVEL NODE")
+        assert(false, "UNKNOWN TOP LEVEL NODE")
     }
 
     assert(n.nodes.map(check).forall(_ == types.Var("Unit")),

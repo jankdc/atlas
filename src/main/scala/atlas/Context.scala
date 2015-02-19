@@ -47,22 +47,19 @@ class Context
     if (isAbsLegal(tag.name, args))
       abs(tag.name).filter(_.terms.init == args).head.terms.last
     else {
-      throw CheckerError(s"${tag.pos}: ${tag.name} has wrong number of arguments.")
+      throw CheckerError(s"${tag.pos}: ${tag.name} has wrong arguments.")
     }
   }
 
   def mkType(n: Node): Type =
     n match {
-      case nodes.Integer(_) =>
-        types.Var("Int")
-      case nodes.Param(_, tp) =>
-        mkType(tp)
       case nodes.NameId(nm) if isTypeBound(types.Var(nm)) =>
         types.Var(nm)
       case nodes.NameId(nm) =>
         throw CheckerError(s"[${n.pos}]: Type not found: $nm")
       case others =>
-        assert(false, "ERROR: NODE MUST BE TYPEABLE"); ???
+        assert(false, s"ERROR: NODE MUST BE TYPEABLE: $n")
+        ???
     }
 
   override def clone(): Context = new Context(
