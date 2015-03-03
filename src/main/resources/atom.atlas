@@ -6,11 +6,7 @@ fn main(args: Int): Int
   fn foo(n: Int): Unit
     pass
 
-  23
-
-fn identity(fibo: Int -> Int): Int -> Int
-  let mut other = fibo(23)
-  fibo
+  fibo(45)
 
 fn fibo(n: Int): Int
   n

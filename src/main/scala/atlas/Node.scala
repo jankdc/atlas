@@ -9,17 +9,17 @@ case class Top(nodes: Seq[Node])
   override def toString = nodes.mkString("\n"*2)
 }
 
-case class Let(val name: String, value: Node)
+case class Let(name: String, value: Node)
  (implicit val pos: SourcePos) extends Node with Bound {
   override def toString = s"let $name = $value"
 }
 
-case class Lam(terms: Seq[Node])
+case class Sig(terms: Seq[Node])
  (implicit val pos: SourcePos) extends Node {
   override def toString = terms.mkString(" -> ")
 }
 
-case class Mut(val name: String, value: Node)
+case class Mut(name: String, value: Node)
  (implicit val pos: SourcePos) extends Node with Bound {
   override def toString = s"let mut $name = $value"
 }
@@ -29,12 +29,12 @@ case class Nop()
   override def toString = s"pass"
 }
 
-case class App(val name: String, args: Seq[Node])
+case class App(name: String, args: Seq[Node])
  (implicit val pos: SourcePos) extends Node with Bound {
   override def toString = s"$name(${args.mkString(", ")})"
 }
 
-case class Fun(val name: String, terms: Seq[Node], body: Seq[Node])
+case class Fun(name: String, terms: Seq[Node], body: Seq[Node])
  (implicit val pos: SourcePos) extends Node with Bound {
   override def toString = {
     val indent = "\n" + (" " * (2 + pos.column))
@@ -51,17 +51,23 @@ case class List(nodes: Seq[Node])
   override def toString = nodes.mkString("\n")
 }
 
-case class Param(val name: String, typename: Node)
+case class Param(name: String, typename: Node)
  (implicit val pos: SourcePos) extends Node with Bound {
   override def toString = s"$name: $typename"
 }
 
-case class NameId(val name: String)
+case class NameId(name: String)
  (implicit val pos: SourcePos) extends Node with Bound {
   override def toString = name
+}
+
+case class Static(name: String, typename: Node, value: Node)
+ (implicit val pos: SourcePos) extends Node with Bound {
+  override def toString = s"static $name: $typename = $value"
 }
 
 case class Integer(value: Int)
  (implicit val pos: SourcePos) extends Node {
   override def toString = value.toString
 }
+

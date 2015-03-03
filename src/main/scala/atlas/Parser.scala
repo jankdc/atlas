@@ -19,7 +19,7 @@ object Parser {
   private
   def parseTop(ts: Seq[Token]): Result = {
     val desc = "a top level expression"
-    val expr = any(desc, parseLet, parseFun, one(patterns.NewLine))
+    val expr = any(desc, parseStatic, parseFun, one(patterns.NewLine))
     val parser = seq(rep(expr, patterns.EOF), one(patterns.EOF))
     val (ns, rm) = parser(ts)
     (Seq(nodes.Top(ns)(ts.head.pos)), rm)
@@ -69,6 +69,11 @@ object Parser {
     (Seq(nodes.Param(nm, tp)(ts.head.pos)), rs)
   }
 
+  // private
+  // def parseLambda(ts: Seq[Token]): Result = {
+  //   val parser = seq(key("("), key("->"), key(")"))
+  // }
+
   // TODO: Add more types!
   // e.g. tuples, list, maps, polymorphic
   private
@@ -77,10 +82,19 @@ object Parser {
     val others = rep(seq(key("->"), simple))
     val parser = seq(simple, others)
     val (types, rs) = parser(ts)
-    types match {
-      case Seq(one) => (types, rs)
-      case morethan => (Seq(nodes.Lam(types)(ts.head.pos)), rs)
-    }
+    (Seq(nodes.Sig(types)(ts.head.pos)), rs)
+  }
+
+  private
+  def parseStatic(ts: Seq[Token]): Result = {
+    val static  = key("static")
+    val name    = one(patterns.NameId)
+    val colon   = key(":")
+    val assign  = key("=")
+    val newline = one(patterns.NewLine)
+    val parser  = seq(static, name, colon, parseType, assign, parseAtom, newline)
+    val (Seq(nodes.NameId(nm), tp, rv), rm) = parser(ts)
+    (Seq(nodes.Static(nm, tp, rv)(ts.head.pos)), rm)
   }
 
   private

@@ -3,6 +3,8 @@ package atlas
 import types.Type
 import nodes.Node
 
+import ListFilter._
+
 class Checker(outer: Context = new Context()) {
   var ctx = outer.clone()
 
@@ -14,6 +16,7 @@ class Checker(outer: Context = new Context()) {
     case n: nodes.Fun     => check(n)
     case n: nodes.Top     => check(n)
     case n: nodes.App     => check(n)
+    case n: nodes.Static  => check(n)
     case others           => types.Var("Unit")
   }
 
@@ -27,63 +30,53 @@ class Checker(outer: Context = new Context()) {
     types.Var("Unit")
   }
 
+  private def check(n: nodes.Static): Type = {
+    val lhs = ctx.getVar(n)
+    val rhs = check(n.value)
+    if (lhs != rhs)
+      throw CheckerError(s"${n.pos}: Expected $lhs but found $rhs")
+    types.Var("Unit")
+  }
+
   private def check(n: nodes.Fun): Type = {
     val inner = ctx.clone()
-    val termTypes = n.terms.map {
-      case param@nodes.Param(nm, tn) =>
-        val tp = inner.mkType(tn)
-        inner.addVar(param, tp)
-        tp
-      case others =>
-        inner.mkType(others)
-    }
-
-    n.body.foreach {
-      case fun@nodes.Fun(nm, ts, _) =>
-        assert(ts.init.forall(_.isInstanceOf[nodes.Param]))
-        val ps = ts.init.asInstanceOf[Seq[nodes.Param]].map(p => inner.mkType(p.typename))
-        val rettyp = inner.mkType(ts.last)
-        val abs = types.Abs(ps :+ rettyp)
-        inner.addAbs(fun, abs)
-        abs
-      case others =>
-        // Do nothing...
-    }
-
+    n.terms.foreach(collect(_, inner))
+    n.body.foreach(collect(_, inner))
     val block = new Checker(inner)
     val bodyTypes = n.body.map(block.check)
-    val lhs = termTypes.last
+    val lhs = inner.mkType(n.terms.last)
     val rhs = bodyTypes.last
-
     if (lhs != rhs)
       throw CheckerError(s"${n.body.last.pos}: Expected $lhs but found $rhs")
-
     types.Var("Unit")
   }
 
   private def check(n: nodes.Top): Type = {
-    n.nodes.foreach {
-      case fun@nodes.Fun(nm, ts, _) =>
-        assert(ts.init.forall(_.isInstanceOf[nodes.Param]))
-        val ps = ts.init.asInstanceOf[Seq[nodes.Param]].map(p => ctx.mkType(p.typename))
-        val rettyp = ctx.mkType(ts.last)
-        val abs = types.Abs(ps :+ rettyp)
-        ctx.addAbs(fun, abs)
-        abs
-      case let@nodes.Let(nm, value) =>
-        ctx.addVar(let, check(value))
-      case others =>
-        assert(false, "UNKNOWN TOP LEVEL NODE")
-    }
-
+    collect(n, ctx)
     assert(n.nodes.map(check).forall(_ == types.Var("Unit")),
       "ERROR: ALL TOP LEVEL NODES MUST BE OF TYPE UNIT")
-
     types.Var("Unit")
   }
 
   private def check(n: nodes.App): Type = {
     ctx.getApp(n, n.args map check)
+  }
+
+  private def collect(n: Node, ctx: Context): Unit = n match {
+    case top@nodes.Top(ns) =>
+      ns.foreach(collect(_, ctx))
+    case fun@nodes.Fun(nm, ts, _) =>
+      val ps = filterParam(ts).toSeq
+      val pTypes = ps.map(p => ctx.mkType(p.typename))
+      val rtType = ctx.mkType(ts.last)
+      ctx.addAbs(fun, types.Abs(pTypes :+ rtType))
+    case sta@nodes.Static(nm, typename, _) =>
+      ctx.addVar(sta, ctx.mkType(typename))
+    case prm@nodes.Param(nm, tn) =>
+      val tp = ctx.mkType(tn)
+      ctx.addVar(prm, tp)
+    case other =>
+      // Nothing to collect...
   }
 }
 

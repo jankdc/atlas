@@ -26,8 +26,8 @@ object Main extends App {
   catch {
     case err: ParserError =>
       println(s"[error]${err.getMessage}")
-    case err: CheckerError =>
-      println(s"[error]${err.getMessage}")
+    // case err: CheckerError =>
+    //   println(s"[error]${err.getMessage}")
   }
 
   private def printToken(token: Token): Unit = {
