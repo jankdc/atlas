@@ -46,9 +46,24 @@ case class Fun(name: String, terms: Seq[Node], body: Seq[Node])
   }
 }
 
+case class UnaOp(op: String, rhs: Node)
+  (implicit val pos: SourcePos) extends Node {
+  override def toString = s"($op $rhs)"
+}
+
+case class BinOp(lhs: Node, op: String, rhs: Node)
+  (implicit val pos: SourcePos) extends Node {
+  override def toString = s"($lhs $op $rhs)"
+}
+
+case class Operator(value: String)
+ (implicit val pos: SourcePos) extends Node {
+  override def toString = value
+}
+
 case class List(nodes: Seq[Node])
  (implicit val pos: SourcePos) extends Node {
-  override def toString = nodes.mkString("\n")
+  override def toString = nodes.mkString(", ")
 }
 
 case class Param(name: String, typename: Node)

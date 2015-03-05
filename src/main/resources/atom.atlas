@@ -6,6 +6,8 @@ fn main(args: Int): Int
   fn foo(n: Int): Unit
     pass
 
+  let name = (23 == 3) == (23 == something(name, 2))
+
   fibo(45)
 
 fn fibo(n: Int): Int

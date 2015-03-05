@@ -16,7 +16,6 @@ class Context
   simTypes += types.Var("Int")
   simTypes += types.Var("Unit")
 
-
   def addVar(tag: Tag, tp: Type): Unit =
     if (! isVarBound(tag.name))
       varBinds += (tag.name -> tp)

@@ -94,8 +94,15 @@ object Pattern {
     buffer += "(->)"
     buffer += "(,)"
     buffer += "(:)"
+    buffer += "(==)"
+    buffer += "(!=)"
+    buffer += "(<=)"
     buffer += "(=)"
+    buffer += "(>=)"
+    buffer += "(<)"
+    buffer += "(>)"
     buffer += "(_)"
+    buffer += "([+-/*])"
     buffer.mkString("|").r
   }
 

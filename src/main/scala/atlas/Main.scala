@@ -12,7 +12,7 @@ object Main extends App {
     val source = stream.mkString
     val tokens = Lexer.lex(source)
     val astree = Parser.parse(tokens)
-    val toptyp = Checker.check(astree)
+    // val toptyp = Checker.check(astree)
 
     stream.close()
 

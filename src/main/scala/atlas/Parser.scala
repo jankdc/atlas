@@ -10,6 +10,18 @@ object Parser {
   type Result = (Seq[Node], Seq[Token])
   type Parsec = (Seq[Token]) => Result
 
+  private val precedenceMap = Map(
+    ("==" -> 10),
+    ("!=" -> 10),
+    ("+"  -> 20),
+    ("-"  -> 20),
+    (">"  -> 30),
+    ("<"  -> 30),
+    ("<=" -> 30),
+    (">=" -> 30),
+    ("*"  -> 40),
+    ("/"  -> 40))
+
   def parse(ts: Seq[Token]): Node = {
     val (Seq(top), remains) = parseTop(ts)
     assert(remains.isEmpty)
@@ -40,7 +52,7 @@ object Parser {
   private
   def parseApp(ts: Seq[Token]): Result = {
     val name = one(patterns.NameId)
-    val args = plist(parseAtom)
+    val args = plist(parseExpr)
     val parser = seq(name, args)
     val (Seq(nodes.NameId(nm), nodes.List(as)), rs) = parser(ts)
     (Seq(nodes.App(nm, as)(ts.head.pos)), rs)
@@ -48,11 +60,11 @@ object Parser {
 
   private
   def parseStmt(ts: Seq[Token]): Result = {
-    val atomStmt = seq(parseAtom, one(patterns.NewLine))
+    val exprStmt = seq(parseExpr, one(patterns.NewLine))
     val callStmt = seq(parseApp, one(patterns.NewLine))
     val passStmt = seq(key("pass"), one(patterns.NewLine))
     val parser = any("a statement",
-      atomStmt,
+      exprStmt,
       callStmt,
       passStmt,
       parseLet,
@@ -68,11 +80,6 @@ object Parser {
     val (Seq(nodes.NameId(nm), tp), rs) = parser(ts)
     (Seq(nodes.Param(nm, tp)(ts.head.pos)), rs)
   }
-
-  // private
-  // def parseLambda(ts: Seq[Token]): Result = {
-  //   val parser = seq(key("("), key("->"), key(")"))
-  // }
 
   // TODO: Add more types!
   // e.g. tuples, list, maps, polymorphic
@@ -92,7 +99,7 @@ object Parser {
     val colon   = key(":")
     val assign  = key("=")
     val newline = one(patterns.NewLine)
-    val parser  = seq(static, name, colon, parseType, assign, parseAtom, newline)
+    val parser  = seq(static, name, colon, parseType, assign, parseExpr, newline)
     val (Seq(nodes.NameId(nm), tp, rv), rm) = parser(ts)
     (Seq(nodes.Static(nm, tp, rv)(ts.head.pos)), rm)
   }
@@ -104,7 +111,7 @@ object Parser {
     val name    = one(patterns.NameId)
     val assign  = key("=")
     val newline = one(patterns.NewLine)
-    val parser  = seq(let, mut, name, assign, parseAtom, newline)
+    val parser  = seq(let, mut, name, assign, parseExpr, newline)
     val (Seq(nodes.NameId(nm), rv), rm) = parser(ts)
     (Seq(nodes.Mut(nm, rv)(ts.head.pos)), rm)
   }
@@ -115,19 +122,41 @@ object Parser {
     val name    = one(patterns.NameId)
     val assign  = key("=")
     val newline = one(patterns.NewLine)
-    val parser  = seq(let, name, assign, parseAtom, newline)
+    val parser  = seq(let, name, assign, parseExpr, newline)
     val (Seq(nodes.NameId(nm), rv), rm) = parser(ts)
     (Seq(nodes.Let(nm, rv)(ts.head.pos)), rm)
   }
 
   private
+  def parseExpr(ts: Seq[Token]): Result = {
+    val parser = seq(parseAtom, rep(seq(parseBinOp, parseAtom)))
+    val (nodes, rm) = parser(ts)
+    val (combined, Seq()) = sortExpr(nodes.tail, nodes.head, 0)
+    (Seq(combined), rm)
+  }
+
+  private
+  def parseBinOp(ts: Seq[Token]): Result = {
+    val parser = any("an operator", precedenceMap.keys.toSeq.map(key):_*)
+    parser(ts)
+  }
+
+  private
+  def parseUnaOp(ts: Seq[Token]): Result = {
+    val parser = seq(key("-"), parseAtom)
+    val (Seq(nodes.Operator(op), value), rm) = parser(ts)
+    (Seq(nodes.UnaOp(op, value)(ts.head.pos)), rm)
+  }
+
+  private
   def parseAtom(ts: Seq[Token]): Result = {
-    val parens = seq(key("("), parseAtom, key(")"))
+    val parens = seq(key("("), parseExpr, key(")"))
     val anymsg = "an atomic expression"
     val integr = one(patterns.Integer)
     val nameid = one(patterns.NameId)
-    val parser = any(anymsg, integr, parens, nameid, parseApp)
-    parser(ts)
+    val parser = any(anymsg, parens, integr, parseApp, nameid, parseUnaOp)
+    val result = parser(ts)
+    result
   }
 
   private
@@ -278,7 +307,6 @@ object Parser {
             if err.count == remain.length =>
               // Do nothing.
           case err: ParserError =>
-            println(s"WENT HERE ${err.count} ${remain.length}")
             throw err
         }
 
@@ -300,7 +328,10 @@ object Parser {
       case tokens.Reserved("pass") +: rest if "pass" == s =>
         (Seq(nodes.Nop()(ts.head.pos)), rest)
       case tokens.Reserved(n) +: rest if n == s =>
-        (Seq(), rest)
+        if (precedenceMap contains n)
+          (Seq(nodes.Operator(n)(ts.head.pos)), rest)
+        else
+          (Seq(), rest)
       case others =>
         throw others.report(s)
     }
@@ -315,6 +346,37 @@ object Parser {
     }
   }
 
+  private
+  def getPrecedence(s: String) =
+    precedenceMap.get(s) getOrElse -1
+
+  private
+  def sortExpr(ns: Seq[Node], lhs: Node, min: Int): (Node, Seq[Node]) = ns match {
+    case nodes.Operator(op) +: rest1 =>
+      val tokenPrec = getPrecedence(op)
+
+      // If this is a binop that binds at least as tightly as the current binop,
+      // consume it, otherwise we are done.
+      if (tokenPrec < min) return (lhs, ns)
+
+      val rhs +: rest2 = rest1
+      val (rhsFinal, rest3) = rest2 match {
+        case nodes.Operator(rhsOp) +: rest4 =>
+          val nextPrec = getPrecedence(rhsOp)
+          if (tokenPrec < nextPrec)
+            sortExpr(rest2, rhs, tokenPrec + 1)
+          else
+            (rhs, rest2)
+        case _ =>
+          (rhs, rest2)
+      }
+
+      val bin = nodes.BinOp(lhs, op, rhsFinal)(lhs.pos)
+      sortExpr(rest3, bin, min)
+    case _ =>
+      (lhs, ns)
+  }
+
   private implicit
   class NodeOps(val ts: Seq[Token]) extends AnyVal {
     def report(s: String): ParserError = {
@@ -322,8 +384,8 @@ object Parser {
         case Some(t) =>
           val row = t.pos.row
           val column = t.pos.column
-          val prefix = t.productPrefix
-          val errMsg = s"[$row,$column]: Expected $s but got $prefix."
+          val prefix = if (t.raw == "\n") "\\n" else t.raw
+          val errMsg = s"[$row,$column]: Expected $s but got '$prefix'."
           ParserError(ts.length, errMsg)
         case None =>
           val errMsg = s"Expected $s, but reached end of file."
