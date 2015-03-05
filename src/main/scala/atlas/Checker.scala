@@ -17,7 +17,38 @@ class Checker(outer: Context = new Context()) {
     case n: nodes.Top     => check(n)
     case n: nodes.App     => check(n)
     case n: nodes.Static  => check(n)
-    case others           => types.Var("Unit")
+    case n: nodes.BinOp   => check(n)
+    case n: nodes.UnaOp   => check(n)
+    case n: nodes.Nop     => types.Var("Unit")
+    case others           =>
+      println(others)
+      ???
+  }
+
+  private def check(n: nodes.UnaOp): Type =
+    check(nodes.BinOp(nodes.Integer(1)(n.pos), n.op, n.rhs)(n.pos))
+
+  private def check(n: nodes.BinOp): Type = {
+    n.op match {
+      case "+" | "-" | "/" | "*" =>
+        val exp = types.Var("Int")
+        (check(n.lhs), check(n.rhs)) match {
+          case (lhs, rhs) if lhs == exp && rhs == exp =>
+            exp
+          case (lhs, rhs) if lhs == exp =>
+            throw CheckerError(s"${n.rhs.pos}: Expected $exp but found $rhs")
+          case (lhs, rhs) if rhs == exp =>
+            throw CheckerError(s"${n.lhs.pos}: Expected $exp but found $lhs")
+        }
+      case "==" | "!=" | "<" | ">" | "<=" | ">=" =>
+        val exp = types.Var("Bool")
+        (check(n.lhs), check(n.rhs)) match {
+          case (lhs, rhs) if lhs == rhs =>
+            exp
+          case (lhs, rhs) =>
+            throw CheckerError(s"${n.lhs.pos}: Expected $lhs but found $rhs")
+        }
+    }
   }
 
   private def check(n: nodes.Let): Type = {
