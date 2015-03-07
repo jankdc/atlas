@@ -1,69 +1,68 @@
-package atlas.patterns
+package atlas
+package patterns
 
-import atlas.tokens
-import atlas.tokens.Token
-import atlas.SourcePos
+import tokens.Token
 import util.matching.Regex
 
 sealed trait Pattern extends Product {
   def r: Regex
-  def create(s: String)(implicit pos: SourcePos): Token
+  def create(s: String, p: SourcePos): Token
   def search(s: String): String = (r findPrefixOf s).mkString
 }
 
 case object Reserved extends Pattern {
   val r: Regex = Pattern.reserved
-  def create(s: String)(implicit pos: SourcePos): Token = tokens.Reserved(s)
+  def create(s: String, p: SourcePos): Token = tokens.Reserved(s)(p)
 }
 
 case object NewLine extends Pattern {
   val r: Regex = Pattern.newline
-  def create(s: String)(implicit pos: SourcePos): Token = tokens.NewLine(s)
+  def create(s: String, p: SourcePos): Token = tokens.NewLine(s)(p)
 }
 
 case object Unknown extends Pattern {
   val r: Regex = Pattern.unknown
-  def create(s: String)(implicit pos: SourcePos): Token = tokens.Unknown(s)
+  def create(s: String, p: SourcePos): Token = tokens.Unknown(s)(p)
 }
 
 case object Comment extends Pattern {
   val r: Regex = Pattern.comment
-  def create(s: String)(implicit pos: SourcePos): Token = tokens.Comment(s)
+  def create(s: String, p: SourcePos): Token = tokens.Comment(s)(p)
 }
 
 case object Integer extends Pattern {
   val r: Regex = Pattern.integer
-  def create(s: String)(implicit pos: SourcePos): Token = tokens.Integer(s)
+  def create(s: String, p: SourcePos): Token = tokens.Integer(s)(p)
 }
 
 case object NameId extends Pattern {
   val r: Regex = Pattern.nameId
-  def create(s: String)(implicit pos: SourcePos): Token = tokens.NameId(s)
+  def create(s: String, p: SourcePos): Token = tokens.NameId(s)(p)
 }
 
 case object Spaces extends Pattern {
   val r: Regex = Pattern.spaces
-  def create(s: String)(implicit pos: SourcePos): Token = tokens.Spaces(s)
+  def create(s: String, p: SourcePos): Token = tokens.Spaces(s)(p)
 }
 
 case object Indent extends Pattern {
   val r: Regex = Pattern.spaces
-  def create(s: String)(implicit pos: SourcePos): Token = tokens.Indent(s)
+  def create(s: String, p: SourcePos): Token = tokens.Indent(s)(p)
 }
 
 case object Dedent extends Pattern {
   val r: Regex = Pattern.spaces
-  def create(s: String)(implicit pos: SourcePos): Token = tokens.Dedent(s)
+  def create(s: String, p: SourcePos): Token = tokens.Dedent(s)(p)
 }
 
 case object Badent extends Pattern {
   val r: Regex = Pattern.spaces
-  def create(s: String)(implicit pos: SourcePos): Token = tokens.Badent(s)
+  def create(s: String, p: SourcePos): Token = tokens.Badent(s)(p)
 }
 
 case object EOF extends Pattern {
   val r: Regex = Pattern.spaces
-  def create(s: String)(implicit pos: SourcePos): Token = tokens.EOF(s)
+  def create(s: String, p: SourcePos): Token = tokens.EOF(s)(p)
 }
 
 object Pattern {

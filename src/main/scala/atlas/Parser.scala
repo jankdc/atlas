@@ -5,10 +5,15 @@ import tokens.Token
 import patterns.Pattern
 import collection.mutable.Buffer
 
-object Parser {
+object parse {
 
   type Result = (Seq[Node], Seq[Token])
   type Parsec = (Seq[Token]) => Result
+
+  def apply(ts: Seq[Token]): Node = {
+    val (Seq(node), Seq()) = parseTop(ts)
+    node
+  }
 
   private val precedenceMap = Map(
     ("==" -> 10),
@@ -21,12 +26,6 @@ object Parser {
     (">=" -> 30),
     ("*"  -> 40),
     ("/"  -> 40))
-
-  def parse(ts: Seq[Token]): Node = {
-    val (Seq(top), remains) = parseTop(ts)
-    assert(remains.isEmpty)
-    return top
-  }
 
   private
   def parseTop(ts: Seq[Token]): Result = {

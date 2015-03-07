@@ -20,9 +20,7 @@ class Checker(outer: Context = new Context()) {
     case n: nodes.BinOp   => check(n)
     case n: nodes.UnaOp   => check(n)
     case n: nodes.Nop     => types.Var("Unit")
-    case others           =>
-      println(others)
-      ???
+    case others           => ???
   }
 
   private def check(n: nodes.UnaOp): Type =

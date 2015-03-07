@@ -1,6 +1,5 @@
-package atlas.tokens
-
-import atlas.{SourcePos, Location}
+package atlas
+package tokens
 
 sealed trait Token extends Product with Location {
   def raw: String

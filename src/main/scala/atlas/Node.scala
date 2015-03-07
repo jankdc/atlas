@@ -1,6 +1,5 @@
-package atlas.nodes
-
-import atlas.{ SourcePos, Location, Bound }
+package atlas
+package nodes
 
 sealed trait Node extends Location
 

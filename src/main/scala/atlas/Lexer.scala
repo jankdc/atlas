@@ -4,13 +4,13 @@ import tokens.Token
 import patterns.Pattern
 import collection.mutable.{ Buffer, Stack }
 
-object Lexer {
+object lex {
 
-  lazy val lex =
+  def apply(s: String) =
     ((mkTokens _) andThen
      (_.mkIndent) andThen
      (_.filterNot(_.isInstanceOf[tokens.Spaces])) andThen
-     (_.filterNot(_.isInstanceOf[tokens.Comment])))
+     (_.filterNot(_.isInstanceOf[tokens.Comment])))(s)
 
   private def mkTokens(s: String): Seq[Token] = {
     var buffer = Buffer[Token]()
@@ -19,13 +19,14 @@ object Lexer {
     implicit var pos = SourcePos(1, 1)
 
     while (! source.isEmpty) {
-      val token = findLongest(source)
+      val token = findLongest(source, pos)
 
-      if (token.isInstanceOf[tokens.NewLine] ||
-          token.isInstanceOf[tokens.Comment])
-        { pos = pos.copy(row = pos.row + 1, column = 1) }
-      else
-        { pos = pos.copy(column = pos.column + token.raw.length) }
+      pos = token match {
+        case _: tokens.NewLine | _: tokens.Comment =>
+          pos.copy(row = pos.row + 1, column = 1)
+        case _ =>
+          pos.copy(column = pos.column + token.raw.length)
+      }
 
       buffer += token
       source = source.substring(token.raw.length)
@@ -35,15 +36,14 @@ object Lexer {
     buffer.toSeq
   }
 
-  private def findLongest(s: String)(implicit pos: SourcePos): Token = {
-    Pattern.all.foldLeft((tokens.Unknown("").asInstanceOf[Token])) {
+  private def findLongest(s: String, pos: SourcePos): Token = {
+    Pattern.all.foldLeft((patterns.Unknown.create("", pos))) {
       case (token, pattern) =>
         val matched = pattern.search(s)
-
         if (matched.length > token.raw.length)
-          { pattern.create(matched) }
+          pattern.create(matched, pos)
         else
-          { token }
+          token
     }
   }
 
@@ -73,9 +73,9 @@ object Lexer {
         while (hasLessIndent) {
           indent.pop()
           if (num > indent.top)
-            { buffer += tokens.Badent() }
+            buffer += tokens.Badent()
           else
-            { buffer += tokens.Dedent() }
+            buffer += tokens.Dedent()
         }
 
         buffer ++= line
@@ -108,10 +108,11 @@ object Lexer {
       buffer.toSeq
     }
 
-    def rmEmptyLines: Seq[Token] = ts
-      .lines
-      .filter(!_.head.isInstanceOf[tokens.NewLine])
-      .flatten
+    def rmEmptyLines: Seq[Token] =
+      ts
+       .lines
+       .filterNot(_.head.isInstanceOf[tokens.NewLine])
+       .flatten
   }
 
 }

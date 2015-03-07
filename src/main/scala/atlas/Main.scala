@@ -10,8 +10,8 @@ object Main extends App {
     val path = "/atom.atlas"
     val stream = Source.fromURL(getClass.getResource(path))
     val source = stream.mkString
-    val tokens = Lexer.lex(source)
-    val astree = Parser.parse(tokens)
+    val tokens = lex(source)
+    val astree = parse(tokens)
     val toptyp = Checker.check(astree)
 
     stream.close()
