@@ -1,8 +1,7 @@
 package atlas
 
-import types.Type
-import nodes.Node
-import ListFilter.filterAbs
+import atlas.ast.Node
+import atlas.types.Type
 import collection.mutable
 
 class Context
@@ -55,13 +54,13 @@ class Context
 
   def mkType(n: Node): Type =
     n match {
-      case nodes.NameId(nm) if isTypeBound(types.Var(nm)) =>
+      case ast.NamedId(nm) if isTypeBound(types.Var(nm)) =>
         types.Var(nm)
-      case nodes.NameId(nm) =>
+      case ast.NamedId(nm) =>
         throw CheckerError(s"[${n.pos}]: Type not found: $nm")
-      case nodes.Sig(Seq(node)) =>
+      case ast.Sig(Seq(node)) =>
         mkType(node)
-      case nodes.Sig(nodes) =>
+      case ast.Sig(nodes) =>
         types.Abs(nodes map mkType)
       case others =>
         assert(false, s"ERROR: NODE MUST BE TYPEABLE: $n")

@@ -1,42 +1,35 @@
 package atlas
 
-import nodes.Node
-import types.Type
-import tokens.Token
-import io.Source
+import atlas.ast.Node
+import atlas.types.Type
+import atlas.tokens.Token
+import scala.io.Source
 
 object Main extends App {
   try {
     val path = "/atom.atlas"
-    val stream = Source.fromURL(getClass.getResource(path))
-    val source = stream.mkString
-    val tokens = lex(source)
-    val astree = parse(tokens)
-    val toptyp = Checker.check(astree)
-
-    stream.close()
-
+    val source = Source.fromURL(getClass.getResource(path)).mkString
     println(s"Location: $path")
-    println(s"Tokens:")
-    tokens.foreach(printToken)
-    println("\n\n")
-    println(s"ASTree:\n$astree\n\n")
 
+    val tokens = lex(source)
+    println(s"Tokens:")
+    println(tokens.map(toString(_)).mkString("\n"))
+
+    val astRoot = parse(tokens)
+    println("ASTree:")
+    println(astRoot)
+
+    val topType = Checker.check(astRoot)
   }
   catch {
-    case err: ParserError =>
+    case err: ParseError =>
       println(s"[error]${err.getMessage}")
-    // case err: CheckerError =>
-    //   println(s"[error]${err.getMessage}")
+    case err: CheckerError =>
+      println(s"[error]${err.getMessage}")
   }
 
-  private def printToken(token: Token): Unit = {
-    print(s"${token.pos}: ")
-    token match {
-      case tokens.NewLine(n) =>
-        println(s"\\n")
-      case othertoken =>
-        println(othertoken)
-    }
+  private def toString(t: Token): String = t match {
+    case _: tokens.NewLine => s"${t.pos}: \\n"
+    case _                 => s"${t.pos}: ${t.raw}"
   }
 }

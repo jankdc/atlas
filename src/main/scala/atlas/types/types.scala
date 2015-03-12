@@ -1,4 +1,5 @@
-package atlas.types
+package atlas
+package types
 
 sealed trait Type
 
