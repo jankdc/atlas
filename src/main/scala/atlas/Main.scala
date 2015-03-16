@@ -24,7 +24,7 @@ object Main extends App {
   catch {
     case err: ParseError =>
       println(s"[error]${err.getMessage}")
-    case err: CheckerError =>
+    case err: CheckError =>
       println(s"[error]${err.getMessage}")
   }
 

@@ -32,9 +32,9 @@ class Checker(outer: Context = new Context()) {
           case (lhs, rhs) if lhs == exp && rhs == exp =>
             exp
           case (lhs, rhs) if lhs == exp =>
-            throw CheckerError(s"${n.rhs.pos}: Expected $exp but found $rhs")
+            throw CheckError(s"${n.rhs.pos}: Expected $exp but found $rhs")
           case (lhs, rhs) if rhs == exp =>
-            throw CheckerError(s"${n.lhs.pos}: Expected $exp but found $lhs")
+            throw CheckError(s"${n.lhs.pos}: Expected $exp but found $lhs")
         }
       case "==" | "!=" | "<" | ">" | "<=" | ">=" =>
         val exp = types.Var("Bool")
@@ -42,7 +42,7 @@ class Checker(outer: Context = new Context()) {
           case (lhs, rhs) if lhs == rhs =>
             exp
           case (lhs, rhs) =>
-            throw CheckerError(s"${n.lhs.pos}: Expected $lhs but found $rhs")
+            throw CheckError(s"${n.lhs.pos}: Expected $lhs but found $rhs")
         }
     }
   }
@@ -61,7 +61,7 @@ class Checker(outer: Context = new Context()) {
     val lhs = ctx.getVar(n)
     val rhs = check(n.value)
     if (lhs != rhs)
-      throw CheckerError(s"${n.pos}: Expected $lhs but found $rhs")
+      throw CheckError(s"${n.pos}: Expected $lhs but found $rhs")
     types.Var("Unit")
   }
 
@@ -74,7 +74,7 @@ class Checker(outer: Context = new Context()) {
     val lhs = inner.mkType(n.terms.last)
     val rhs = bodyTypes.last
     if (lhs != rhs)
-      throw CheckerError(s"${n.body.last.pos}: Expected $lhs but found $rhs")
+      throw CheckError(s"${n.body.last.pos}: Expected $lhs but found $rhs")
     types.Var("Unit")
   }
 

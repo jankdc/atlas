@@ -19,36 +19,36 @@ class Context
     if (! isVarBound(tag.name))
       varBinds += (tag.name -> tp)
     else
-      throw CheckerError(s"${tag.pos}: ${tag.name} is already defined.")
+      throw CheckError(s"${tag.pos}: ${tag.name} is already defined.")
 
   def getVar(tag: Tag): Type = {
     (varBinds.get(tag.name)) match {
       case Some(typeid) =>
         typeid
       case None =>
-        throw CheckerError(s"${tag.pos}: Var is undefined: ${tag.name}")
+        throw CheckError(s"${tag.pos}: Var is undefined: ${tag.name}")
     }
   }
 
   def addAbs(tag: Tag, tp: types.Abs): Unit = {
     if (! isAbsLegal(tag.name, tp)) {
-      throw CheckerError(s"${tag.pos}: ${tag.name} has illegal signature.")
+      throw CheckError(s"${tag.pos}: ${tag.name} has illegal signature.")
     }
 
     if (! isAbsBound(tag.name, tp))
       absBinds += (tag.name -> (tp +: abs(tag.name)))
     else
-      throw CheckerError(s"${tag.pos}: ${tag.name} is already defined.")
+      throw CheckError(s"${tag.pos}: ${tag.name} is already defined.")
   }
 
   def getApp(tag: Tag, args: Seq[Type]): Type = {
     if (! isAbsBound(tag.name))
-      throw CheckerError(s"${tag.pos}: ${tag.name} is undefined.")
+      throw CheckError(s"${tag.pos}: ${tag.name} is undefined.")
 
     if (isAbsLegal(tag.name, args))
       abs(tag.name).filter(_.terms.init == args).head.terms.last
     else {
-      throw CheckerError(s"${tag.pos}: ${tag.name} has wrong arguments.")
+      throw CheckError(s"${tag.pos}: ${tag.name} has wrong arguments.")
     }
   }
 
@@ -57,7 +57,7 @@ class Context
       case ast.NamedId(nm) if isTypeBound(types.Var(nm)) =>
         types.Var(nm)
       case ast.NamedId(nm) =>
-        throw CheckerError(s"[${n.pos}]: Type not found: $nm")
+        throw CheckError(s"[${n.pos}]: Type not found: $nm")
       case ast.Sig(Seq(node)) =>
         mkType(node)
       case ast.Sig(nodes) =>
