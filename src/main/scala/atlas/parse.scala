@@ -288,9 +288,9 @@ object parse {
 
   private def key(s: String): Parsec =
     (ts: Seq[Token]) => ts match {
-      case tokens.Reserve("pass") +: rest if "pass" == s =>
+      case tokens.Reserve(_, "pass") +: rest if "pass" == s =>
         (Seq(ast.Nop()(ts.head.pos)), rest)
-      case tokens.Reserve(n) +: rest if n == s =>
+      case tokens.Reserve(_, n) +: rest if n == s =>
         if (precedenceMap contains n)
           (Seq(ast.Operator(n)(ts.head.pos)), rest)
         else
@@ -302,8 +302,8 @@ object parse {
   private def pin(token: Token): Seq[Node] = {
     implicit val pos = token.pos
     token match {
-      case tokens.NamedId(n) => Seq(ast.NamedId(n))
-      case tokens.Integer(n) => Seq(ast.Integer(n.toInt))
+      case tokens.NamedId(_, n) => Seq(ast.NamedId(n))
+      case tokens.Integer(_, n) => Seq(ast.Integer(n.toInt))
       case others => Seq()
     }
   }

@@ -1,28 +1,27 @@
 package atlas
 
-import tokens._
-import collection.mutable.{ Buffer, Stack }
-import util.matching.Regex
+import atlas.tokens.Token
+import scala.collection.mutable
+import scala.util.matching.Regex
 
 object lex {
-  def apply(s: String) =
+  def apply(s: String): Seq[Token] =
     (mkTokens _  andThen
     (_.mkIndent) andThen
-    (_.filterNot(_.isInstanceOf[WhiteSp])) andThen
-    (_.filterNot(_.isInstanceOf[Comment])))(s)
+    (_.filterNot(_.isInstanceOf[tokens.WhiteSp])) andThen
+    (_.filterNot(_.isInstanceOf[tokens.Comment])))(s)
 
   private def mkTokens(s: String): Seq[Token] = {
-    val buffer = Buffer[Token]()
+    val buffer = mutable.Buffer[Token]()
     var source = s
-
-    implicit var pos = LinePos(1, 1)
+    var pos = LinePos(1, 1)
 
     while (! source.isEmpty) {
       val token = findLongest(source, pos)
 
       pos = token match {
-        case _: NewLine |
-             _: Comment =>
+        case _: tokens.NewLine |
+             _: tokens.Comment =>
           pos.copy(row = pos.row + 1, col = 1)
         case _ =>
           pos.copy(col = pos.col + token.raw.length)
@@ -32,31 +31,32 @@ object lex {
       source = source.substring(token.raw.length)
     }
 
-    buffer += EOF()
+    buffer += tokens.EOF(pos)
     buffer.toSeq
   }
 
-  def findLongest(s: String, p: LinePos): Token =
-    patterns.foldLeft(Unknown("")(p): Token) {
+  private def findLongest(s: String, p: LinePos): Token =
+    patterns.foldLeft(tokens.Unknown(p, ""): Token) {
       case (token, (regex, tokenGen)) =>
         val matched = regex.findPrefixOf(s).mkString
         if (token.raw.length >= matched.length)
           token
         else
-          tokenGen(matched, p)
+          tokenGen(p, matched)
     }
 
-  private implicit class TokenSeqOps(val ts: Seq[Token]) extends AnyVal {
+  private implicit
+  class TokenSeqOps(val ts: Seq[Token]) extends AnyVal {
     def mkIndent: Seq[Token] = {
       if (ts.isEmpty) return Seq()
 
-      val indent = Stack[Int](0)
-      val buffer = Buffer[Token]()
+      val indent = mutable.Stack[Int](0)
+      val buffer = mutable.Buffer[Token]()
 
       for (line <- ts.nonEmptyLines) {
-        implicit val pos = line.head.pos
-        implicit val num = line.head match {
-          case WhiteSp(n) => n.length
+        val pos = line.head.pos
+        val num = line.head match {
+          case tokens.WhiteSp(_, n) => n.length
           case otherwise => 0
         }
 
@@ -65,15 +65,15 @@ object lex {
 
         if (hasMoreIndent) {
           indent.push(num)
-          buffer += Indent()
+          buffer += tokens.Indent(pos)
         }
 
         while (hasLessIndent) {
           indent.pop()
           if (num > indent.top)
-            buffer += Badent()
+            buffer += tokens.Badent(pos)
           else
-            buffer += Dedent()
+            buffer += tokens.Dedent(pos)
         }
 
         buffer ++= line
@@ -81,18 +81,18 @@ object lex {
 
       while (0 < indent.top) {
         indent.pop()
-        buffer += Dedent()(ts.last.pos)
+        buffer += tokens.Dedent(ts.last.pos)
       }
 
       buffer.toSeq
     }
 
     def lines: Seq[Seq[Token]] = {
-      val buffer = Buffer[Seq[Token]]()
+      val buffer = mutable.Buffer[Seq[Token]]()
       var remain = ts
 
       while (remain.nonEmpty)
-        remain.span(!_.isInstanceOf[NewLine]) match {
+        remain.span(!_.isInstanceOf[tokens.NewLine]) match {
           case (Seq(),Seq()) =>
             return buffer.toSeq
           case (line, Seq()) =>
@@ -107,23 +107,23 @@ object lex {
     }
 
     def nonEmptyLines: Seq[Seq[Token]] =
-      ts.lines.filter(!_.head.isInstanceOf[NewLine])
+      ts.lines.filter(!_.head.isInstanceOf[tokens.NewLine])
   }
 
-  private type TokenGen = (String, LinePos) => Token
+  private type TokenGen = (LinePos, String) => Token
   private type Pattern  = (Regex, TokenGen)
 
   private lazy val patterns: Seq[Pattern] = Seq(
-    (reserve, (s: String, p: LinePos) => Reserve(s)(p)),
-    (namedId, (s: String, p: LinePos) => NamedId(s)(p)),
-    (integer, (s: String, p: LinePos) => Integer(s)(p)),
-    (whiteSp, (s: String, p: LinePos) => WhiteSp(s)(p)),
-    (newline, (s: String, p: LinePos) => NewLine(s)(p)),
-    (comment, (s: String, p: LinePos) => Comment(s)(p)),
-    (unknown, (s: String, p: LinePos) => Unknown(s)(p)))
+    (reserve, tokens.Reserve(_, _)),
+    (namedId, tokens.NamedId(_, _)),
+    (integer, tokens.Integer(_, _)),
+    (whiteSp, tokens.WhiteSp(_, _)),
+    (newline, tokens.NewLine(_, _)),
+    (comment, tokens.Comment(_, _)),
+    (unknown, tokens.Unknown(_, _)))
 
   private lazy val reserve = {
-    val buffer = Buffer[String]()
+    val buffer = mutable.Buffer[String]()
     buffer += "(static)"
     buffer += "(pass)"
     buffer += "(mut)"
@@ -154,4 +154,5 @@ object lex {
   private lazy val namedId = "[a-zA-Z]\\w*".r
   private lazy val unknown = "((?s).)".r
   private lazy val whiteSp = " *".r
+
 }
