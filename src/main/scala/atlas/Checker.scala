@@ -67,11 +67,11 @@ class Checker(outer: Context = new Context()) {
 
   private def check(n: ast.Fun): Type = {
     val inner = ctx.clone()
-    n.terms.foreach(collect(_, inner))
+    n.params.foreach(collect(_, inner))
     n.body.foreach(collect(_, inner))
     val block = new Checker(inner)
     val bodyTypes = n.body.map(block.check)
-    val lhs = inner.mkType(n.terms.last)
+    val lhs = inner.mkType(n.ret)
     val rhs = bodyTypes.last
     if (lhs != rhs)
       throw CheckError(s"${n.body.last.pos}: Expected $lhs but found $rhs")
@@ -90,18 +90,17 @@ class Checker(outer: Context = new Context()) {
   }
 
   private def collect(n: Node, ctx: Context): Unit = n match {
-    case top@ast.Top(ns) =>
+    case n@ast.Top(ns) =>
       ns.foreach(collect(_, ctx))
-    case fun@ast.Fun(nm, ts, _) =>
-      val ps = ts.collect { case n: ast.Param => n }
+    case n@ast.Fun(nm, ps, rt, _) =>
       val pTypes = ps.map(p => ctx.mkType(p.typename))
-      val rtType = ctx.mkType(ts.last)
-      ctx.addAbs(fun, types.Abs(pTypes :+ rtType))
-    case sta@ast.Static(nm, typename, _) =>
-      ctx.addVar(sta, ctx.mkType(typename))
-    case prm@ast.Param(nm, tn) =>
+      val rtType = ctx.mkType(rt)
+      ctx.addAbs(n, types.Abs(pTypes :+ rtType))
+    case n@ast.Static(nm, typename, _) =>
+      ctx.addVar(n, ctx.mkType(typename))
+    case n@ast.Param(nm, tn) =>
       val tp = ctx.mkType(tn)
-      ctx.addVar(prm, tp)
+      ctx.addVar(n, tp)
     case other =>
       // Nothing to collect...
   }

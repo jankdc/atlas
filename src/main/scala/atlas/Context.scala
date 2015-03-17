@@ -58,9 +58,9 @@ class Context
         types.Var(nm)
       case ast.NamedId(nm) =>
         throw CheckError(s"[${n.pos}]: Type not found: $nm")
-      case ast.Sig(Seq(node)) =>
+      case ast.Type(Seq(node)) =>
         mkType(node)
-      case ast.Sig(nodes) =>
+      case ast.Type(nodes) =>
         types.Abs(nodes map mkType)
       case others =>
         assert(false, s"ERROR: NODE MUST BE TYPEABLE: $n")

@@ -29,8 +29,13 @@ object parse {
     val body = dlist(parseStmt)
     val params = plist(parseParam)
     val parser = seq(fn, name, params, key(":"), parseType, newl, body)
-    val (Seq(ast.NamedId(nm), ast.List(ps), tp, ast.List(bd)), rs) = parser(ts)
-    (Seq(ast.Fun(nm, ps :+ tp, bd)(ts.head.pos)), rs)
+    val (Seq(ast.NamedId(nm)
+        , ast.List(ps)
+        , tp: ast.Type
+        , ast.List(bd))
+        , rs) = parser(ts)
+    val narrow = ps collect { case p: ast.Param => p }
+    (Seq(ast.Fun(nm, narrow, tp, bd)(ts.head.pos)), rs)
   }
 
   private def parseApp(ts: Seq[Token]): Result = {
@@ -69,7 +74,7 @@ object parse {
     val others = rep(seq(key("->"), simple))
     val parser = seq(simple, others)
     val (types, rs) = parser(ts)
-    (Seq(ast.Sig(types)(ts.head.pos)), rs)
+    (Seq(ast.Type(types)(ts.head.pos)), rs)
   }
 
   private def parseStatic(ts: Seq[Token]): Result = {
