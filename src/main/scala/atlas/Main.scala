@@ -1,7 +1,5 @@
 package atlas
 
-import atlas.ast.Node
-import atlas.types.Type
 import atlas.tokens.Token
 import scala.io.Source
 

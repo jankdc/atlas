@@ -2,7 +2,7 @@ package atlas
 
 import atlas.ast.Node
 import atlas.tokens.Token
-import collection.mutable.Buffer
+import scala.collection.mutable
 
 object parse {
 
@@ -154,7 +154,7 @@ object parse {
 
   private def repPat(p: Parsec, until: String): Parsec =
     (ts: Seq[Token]) => {
-      val buffer = Buffer[Node]()
+      val buffer = mutable.Buffer[Node]()
       var remain = ts
 
       def reached = remain.headOption match {
@@ -173,7 +173,7 @@ object parse {
 
   private def repRaw(p: Parsec, until: String): Parsec =
     (ts: Seq[Token]) => {
-      val buffer = Buffer[Node]()
+      val buffer = mutable.Buffer[Node]()
       var remain = ts
 
       def reached = remain.headOption match {
@@ -192,7 +192,7 @@ object parse {
 
   private def rep(p: Parsec): Parsec =
     (ts: Seq[Token]) => {
-      val buffer = Buffer[Node]()
+      val buffer = mutable.Buffer[Node]()
       var remain = ts
 
       try {
@@ -258,7 +258,7 @@ object parse {
 
   private def eat(ps: Parsec*): Parsec =
     (ts: Seq[Token]) => {
-      val buffer = Buffer[Node]()
+      val buffer = mutable.Buffer[Node]()
       var remain = ts
 
       for (p <- ps)

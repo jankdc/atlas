@@ -2,7 +2,7 @@ package atlas
 
 import atlas.ast.Node
 import atlas.types.Type
-import collection.mutable
+import scala.collection.mutable
 
 class Context
 (
