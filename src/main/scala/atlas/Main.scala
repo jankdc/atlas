@@ -17,7 +17,9 @@ object Main extends App {
     println("ASTree:")
     println(astRoot)
 
-    val topType = Checker.check(astRoot)
+    val prelude = Set("Unit", "Int")
+    val context = Context(prelude, Map())
+    val topType = findType(Env(Map(), context), astRoot)
   }
   catch {
     case err: ParseError =>
