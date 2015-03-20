@@ -1,3 +1,3 @@
 package atlas
 
-case class Sym(scope: String, name: String, pos: LinePos)
+case class Sym(scope: String, name: String)(val pos: LinePos)

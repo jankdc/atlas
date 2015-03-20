@@ -27,14 +27,14 @@ object findType {
   }
 
   private def check(e: Env, s: String, n: ast.NamedId): (Env, Type) = {
-    val t = e.context.getVar(Sym(s, n.name, n.pos))
+    val t = e.context.getVar(Sym(s, n.name)(n.pos))
     (e.copy(archive = e.archive + ((n, n.pos) -> t)), t)
   }
 
   private def check(e: Env, s: String, n: ast.Let): (Env, Type) = {
     val s1 = s + "::" + n.name
     val (e1, t) = check(e, s1, n.value)
-    val c1 = e.context.addVar(Sym(s, n.name, n.pos), t)
+    val c1 = e.context.addVar(Sym(s, n.name)(n.pos), t)
     val t1 = types.Var("Unit")
 
     ((Env(e.archive + ((n, n.pos) -> t1), c1)), t1)
@@ -43,7 +43,7 @@ object findType {
   private def check(e: Env, s: String, n: ast.Mut): (Env, Type) = {
     val s1 = s + "::" + n.name
     val (e1, t) = check(e, s1, n.value)
-    val c1 = e.context.addVar(Sym(s, n.name, n.pos), t)
+    val c1 = e.context.addVar(Sym(s, n.name)(n.pos), t)
     val t1 = types.Var("Unit")
 
     ((Env(e.archive + ((n, n.pos) -> t1), c1)), t1)
@@ -83,7 +83,7 @@ object findType {
   private def check(e: Env, s: String, n: ast.Static): (Env, Type) = {
     val t1 = types.Var("Unit")
     val s1 = s + "::" + n.name
-    val t2 = e.context.getVar(Sym(s, n.name, n.pos))
+    val t2 = e.context.getVar(Sym(s, n.name)(n.pos))
     val (e1, t3) = check(e, s1, n.value)
 
     if (t2 != t3)
@@ -136,7 +136,7 @@ object findType {
       val (e2, t) = check(env, s, n)
       (e2, ts :+ t)
     }
-    val (s1, t2) = e2.context.getFun(Sym(s, n.name, n.pos), t1)
+    val (s1, t2) = e2.context.getFun(Sym(s, n.name)(n.pos), t1)
     (e.copy(archive = e.archive + ((n, n.pos) -> types.App(s1, t2))), t2)
   }
 
@@ -146,16 +146,15 @@ object findType {
     case ast.Fun(nm, ps, rt, _) =>
       val p = ps.map(p => toType(p.typename))
       val r = toType(rt)
-      val c = e.context.addFun(Sym(s, nm, n.pos), types.Fun(p :+ r))
+      val c = e.context.addFun(Sym(s, nm)(n.pos), types.Fun(p :+ r))
       e.copy(context = c)
     case ast.Param(nm, tn) =>
       val t = toType(tn)
-      val c = e.context.addVar(Sym(s, nm, n.pos), t)
+      val c = e.context.addVar(Sym(s, nm)(n.pos), t)
       e.copy(context = c)
     case ast.Static(nm, tpn, _) =>
-      println(e.context.bindings.mkString("\n"))
       val t = toType(tpn)
-      val c = e.context.addVar(Sym(s, nm, n.pos), t)
+      val c = e.context.addVar(Sym(s, nm)(n.pos), t)
       e.copy(context = c)
     case other => e
   }

@@ -1,3 +1,4 @@
+static something: Int = 23
 
 fn main(args: Int): Int
 
@@ -9,11 +10,9 @@ fn main(args: Int): Int
 
   23 + something
 
-
 fn something(name: Int): Int
   23
 
-static something: Int = 23
 
 fn fibo(n: Int): Int
   n
