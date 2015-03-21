@@ -130,7 +130,6 @@ object lex {
     buffer += "(let)"
     buffer += "(fn)"
     buffer += "(as)"
-    buffer += "(\\(\\))"
     buffer += "(\\()"
     buffer += "(\\))"
     buffer += "(->)"
