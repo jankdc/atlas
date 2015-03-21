@@ -1,5 +1,3 @@
-static something: Int = 23
-
 fn main(args: Int): Int
 
   let name = foo(2)
@@ -8,11 +6,10 @@ fn main(args: Int): Int
   fn foo(n: Int): Unit
     pass
 
-  23 + something
-
-fn something(name: Int): Int
   23
 
+fn something(): Int
+  23
 
 fn fibo(n: Int): Int
   n

@@ -6,8 +6,7 @@ import scala.collection.mutable
 
 case class Context(typeset: Set[String], bindings: Map[Sym, Seq[Type]]) {
   def addVar(s: Sym, t: Type): Context = {
-    if (!isTypeBound(t))
-      throw CheckError(s"${s.pos}: Type is not found: $t")
+    checkType(s.pos, t)
 
     bindings.get(s) match {
       case None =>
@@ -31,8 +30,7 @@ case class Context(typeset: Set[String], bindings: Map[Sym, Seq[Type]]) {
       .getOrElse(throw CheckError(s"${s.pos}: ${s.name} is undefined."))
 
   def addFun(s: Sym, t: Type): Context = {
-    if (!isTypeBound(t))
-      throw CheckError(s"${s.pos}: Type is not found: $t")
+    checkType(s.pos, t)
 
     bindings.get(s) match {
       case None =>
@@ -61,10 +59,12 @@ case class Context(typeset: Set[String], bindings: Map[Sym, Seq[Type]]) {
   def addType(s: String): Context =
     this.copy(typeset = this.typeset + s)
 
-  private def isTypeBound(t: Type): Boolean = t match {
-    case types.Fun(terms) => terms forall isTypeBound
-    case types.Var(tname) => typeset contains tname
-    case types.App(_, ts) => isTypeBound(ts)
+  private def checkType(p: LinePos, t: Type): Unit = t match {
+    case types.Fun(terms) => terms.foreach(checkType(p, _))
+    case types.App(_, ts) => checkType(p, t)
+    case types.Var(tname) =>
+      if (! typeset.contains(tname))
+        throw CheckError(s"$p: Type is not found: $tname")
   }
 }
 
