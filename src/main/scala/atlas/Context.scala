@@ -22,7 +22,6 @@ case class Context(typeset: Set[String], bindings: Map[Sym, Seq[Type]]) {
       .collect {
         case (Sym(_, sm), ts) if sm == s.name => ts.collectFirst {
           case t: types.Var => t
-          case t: types.Fun if t.terms.length == 1 => t
         }
       }
       .flatten
