@@ -11,12 +11,12 @@ case class Top(nodes: Seq[Node])
 }
 
 case class Let(name: String, value: Node)
-  (val pos: LinePos) extends Node with Bound {
+  (val pos: LinePos) extends Node {
   override def toString = s"let $name = $value"
 }
 
 case class Mut(name: String, value: Node)
-  (val pos: LinePos) extends Node with Bound {
+  (val pos: LinePos) extends Node {
   override def toString = s"let mut $name = $value"
 }
 
@@ -25,12 +25,12 @@ case class Nop()(val pos: LinePos) extends Node {
 }
 
 case class App(name: String, args: Seq[Node])
-  (val pos: LinePos) extends Node with Bound {
+  (val pos: LinePos) extends Node {
   override def toString = s"$name(${args.mkString(", ")})"
 }
 
 case class Fun(name: String, params: Seq[Param], ret: Type, body: Seq[Node])
-  (val pos: LinePos) extends Node with Bound {
+  (val pos: LinePos) extends Node {
   override def toString = {
     val indent = "\n" + (" " * (2 + pos.col))
     val bdNodes = body.mkString(indent)
@@ -66,17 +66,17 @@ case class List(nodes: Seq[Node])
 }
 
 case class Param(name: String, typename: Node)
-  (val pos: LinePos) extends Node with Bound {
+  (val pos: LinePos) extends Node {
   override def toString = s"$name: $typename"
 }
 
 case class NamedId(name: String)
-  (val pos: LinePos) extends Node with Bound {
+  (val pos: LinePos) extends Node {
   override def toString = name
 }
 
 case class Static(name: String, typename: Node, value: Node)
-  (val pos: LinePos) extends Node with Bound {
+  (val pos: LinePos) extends Node {
   override def toString = s"static $name: $typename = $value"
 }
 
