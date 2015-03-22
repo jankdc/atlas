@@ -27,6 +27,12 @@ object genLLVM {
 
   private def gen(e: GenEnv, s: String, n: ast.NamedId): Seq[String] = ???
 
+  private def gen(e: GenEnv, s: String, n: ast.Static): Seq[String] = ???
+
+  private def gen(e: GenEnv, s: String, n: ast.BinOp): Seq[String] = ???
+
+  private def gen(e: GenEnv, s: String, n: ast.UnaOp): Seq[String] = ???
+
   private def gen(e: GenEnv, s: String, n: ast.Let): Seq[String] = ???
 
   private def gen(e: GenEnv, s: String, n: ast.Mut): Seq[String] = ???
@@ -38,10 +44,4 @@ object genLLVM {
   private def gen(e: GenEnv, s: String, n: ast.Nop): Seq[String] = ???
 
   private def gen(e: GenEnv, s: String, n: ast.App): Seq[String] = ???
-
-  private def gen(e: GenEnv, s: String, n: ast.BinOp): Seq[String] = ???
-
-  private def gen(e: GenEnv, s: String, n: ast.UnaOp): Seq[String] = ???
-
-  private def gen(e: GenEnv, s: String, n: ast.Static): Seq[String] = ???
 }
