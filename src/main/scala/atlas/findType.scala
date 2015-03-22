@@ -2,6 +2,7 @@ package atlas
 
 import atlas.ast.Node
 import atlas.types.Type
+import atlas.meta.NodeMeta
 
 object findType {
   def apply(e: Env, n: Node): (Env, Type) = check(e, "", n)
@@ -23,12 +24,14 @@ object findType {
 
   private def check(e: Env, s: String, n: ast.Integer): (Env, Type) = {
     val t = types.Var("Int")
-    (e.copy(archive = e.archive + ((n, n.pos) -> t)), t)
+    val v = ((n, n.pos) -> NodeMeta(t, ""))
+    (e.copy(archive = e.archive + v), t)
   }
 
   private def check(e: Env, s: String, n: ast.NamedId): (Env, Type) = {
     val t = e.context.getVar(Sym(s, n.name)(n.pos))
-    (e.copy(archive = e.archive + ((n, n.pos) -> t)), t)
+    val v = ((n, n.pos) -> NodeMeta(t, ""))
+    (e.copy(archive = e.archive + v), t)
   }
 
   private def check(e: Env, s: String, n: ast.Let): (Env, Type) = {
@@ -36,8 +39,9 @@ object findType {
     val (e1, t) = check(e, s1, n.value)
     val c1 = e.context.addVar(Sym(s, n.name)(n.pos), t)
     val t1 = types.Var("Unit")
+    val va = ((n, n.pos) -> NodeMeta(t1, ""))
 
-    ((Env(e.archive + ((n, n.pos) -> t1), c1)), t1)
+    ((Env(e.archive + va, c1)), t1)
   }
 
   private def check(e: Env, s: String, n: ast.Mut): (Env, Type) = {
@@ -45,8 +49,9 @@ object findType {
     val (e1, t) = check(e, s1, n.value)
     val c1 = e.context.addVar(Sym(s, n.name)(n.pos), t)
     val t1 = types.Var("Unit")
+    val va = ((n, n.pos) -> NodeMeta(t1, ""))
 
-    ((Env(e.archive + ((n, n.pos) -> t1), c1)), t1)
+    ((Env(e.archive + va, c1)), t1)
   }
 
   private def check(e: Env, s: String, n: ast.Fun): (Env, Type) = {
@@ -82,7 +87,8 @@ object findType {
 
   private def check(e: Env, s: String, n: ast.Nop): (Env, Type) = {
     val t = types.Var("Unit")
-    (e.copy(archive = e.archive + ((n, n.pos) -> t)), t)
+    val v = ((n, n.pos) -> NodeMeta(t, ""))
+    (e.copy(archive = e.archive + v), t)
   }
 
   private def check(e: Env, s: String, n: ast.App): (Env, Type) = {
@@ -91,7 +97,8 @@ object findType {
       (e2, ts :+ t)
     }
     val (s1, t2) = e2.context.getFun(Sym(s, n.name)(n.pos), t1)
-    (e.copy(archive = e.archive + ((n, n.pos) -> types.App(s1, t2))), t2)
+    val v = ((n, n.pos) -> NodeMeta(t2, s1))
+    (e.copy(archive = e.archive + v), t2)
   }
 
   private def check(e: Env, s: String, n: ast.BinOp): (Env, Type) = {
@@ -111,8 +118,8 @@ object findType {
           throw CheckError(s"${n.lhs.pos}: Expected $lhs but found $rhs")
         exp
     }
-
-    ((e2.copy(archive = e2.archive + ((n, n.pos) -> t))), t)
+    val v = ((n, n.pos) -> NodeMeta(t, ""))
+    ((e2.copy(archive = e2.archive + v)), t)
   }
 
   private def check(e: Env, s: String, n: ast.UnaOp): (Env, Type) = {
@@ -126,7 +133,8 @@ object findType {
       case not => ???
     }
 
-    ((e1.copy(archive = e1.archive + ((n, n.pos) -> t))), t)
+    val v = ((n, n.pos) -> NodeMeta(t, ""))
+    ((e1.copy(archive = e1.archive + v)), t)
   }
 
   private def check(e: Env, s: String, n: ast.Static): (Env, Type) = {
@@ -138,7 +146,8 @@ object findType {
     if (t2 != t3)
       throw CheckError(s"${n.pos}: Expected $t2 but found $t3")
 
-    ((e1.copy(archive = e.archive + ((n, n.pos) -> t1))), t1)
+    val v = ((n, n.pos) -> NodeMeta(t1, ""))
+    ((e1.copy(archive = e1.archive + v)), t1)
   }
 
   private def collect(e: Env, s: String, n: Node): Env = n match {
