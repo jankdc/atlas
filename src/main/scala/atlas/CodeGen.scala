@@ -5,8 +5,8 @@ import atlas.types.Type
 
 case class GenEnv(arc: Map[(Node, LinePos), Type], acc: Int)
 
-object genLLVM {
-  def apply(e: GenEnv, s: String, n: Node): Seq[String] = gen(e, "", n)
+object CodeGen {
+  def genLLVM(e: GenEnv, s: String, n: Node): Seq[String] = gen(e, "", n)
 
   private def gen(e: GenEnv, s: String, n: Node): Seq[String] = n match {
     case n: ast.Integer => gen(e, s, n)

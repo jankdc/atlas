@@ -4,8 +4,8 @@ import atlas.ast.Node
 import atlas.types.Type
 import atlas.meta.NodeMeta
 
-object findType {
-  def apply(e: Env, n: Node): (Env, Type) = check(e, "", n)
+object TypeSystem {
+  def collectTypes(e: Env, n: Node): (Env, Type) = check(e, "", n)
 
   private def check(e: Env, s: String, n: Node): (Env, Type) = n match {
     case n: ast.Integer => check(e, s, n)
@@ -29,7 +29,7 @@ object findType {
   }
 
   private def check(e: Env, s: String, n: ast.NamedId): (Env, Type) = {
-    val t = e.context.getVar(Sym(s, n.name)(n.pos))
+    val t = e.context.getVar(Symbol(s, n.name)(n.pos))
     val v = ((n, n.pos) -> NodeMeta(t, ""))
     (e.copy(archive = e.archive + v), t)
   }
@@ -37,7 +37,7 @@ object findType {
   private def check(e: Env, s: String, n: ast.Let): (Env, Type) = {
     val s1 = s + "::" + n.name
     val (e1, t) = check(e, s1, n.value)
-    val c1 = e.context.addVar(Sym(s, n.name)(n.pos), t)
+    val c1 = e.context.addVar(Symbol(s, n.name)(n.pos), t)
     val t1 = types.Var("Unit")
     val va = ((n, n.pos) -> NodeMeta(t1, ""))
 
@@ -47,7 +47,7 @@ object findType {
   private def check(e: Env, s: String, n: ast.Mut): (Env, Type) = {
     val s1 = s + "::" + n.name
     val (e1, t) = check(e, s1, n.value)
-    val c1 = e.context.addVar(Sym(s, n.name)(n.pos), t)
+    val c1 = e.context.addVar(Symbol(s, n.name)(n.pos), t)
     val t1 = types.Var("Unit")
     val va = ((n, n.pos) -> NodeMeta(t1, ""))
 
@@ -68,7 +68,7 @@ object findType {
     val rt = toType(n.ret)
 
     if (bt != rt)
-      throw CheckError(s"${n.body.last.pos}: Expected $rt but found $bt")
+      throw TypeError(s"${n.body.last.pos}: Expected $rt but found $bt")
 
     (e3.copy(context = e.context), types.Var("Unit"))
   }
@@ -79,7 +79,7 @@ object findType {
     val e2 = n.nodes.foldLeft(e1) { case (e, n) =>
       val (e1, t2) = check(e, s, n)
       if (t1 != t2)
-        throw CheckError(s"${n.pos}: Expected $t1 but found $t2")
+        throw TypeError(s"${n.pos}: Expected $t1 but found $t2")
       e1
     }
     (e2, t1)
@@ -96,7 +96,7 @@ object findType {
       val (e2, t) = check(env, s, n)
       (e2, ts :+ t)
     }
-    val (s1, t2) = e2.context.getFun(Sym(s, n.name)(n.pos), t1)
+    val (s1, t2) = e2.context.getFun(Symbol(s, n.name)(n.pos), t1)
     val v = ((n, n.pos) -> NodeMeta(t2, s1))
     (e.copy(archive = e.archive + v), t2)
   }
@@ -108,14 +108,14 @@ object findType {
       case "+" | "-" | "/" | "*" =>
         val exp = types.Var("Int")
         if (lhs != exp)
-          throw CheckError(s"${n.lhs.pos}: Expected $exp but found $lhs")
+          throw TypeError(s"${n.lhs.pos}: Expected $exp but found $lhs")
         if (rhs != exp)
-          throw CheckError(s"${n.rhs.pos}: Expected $exp but found $rhs")
+          throw TypeError(s"${n.rhs.pos}: Expected $exp but found $rhs")
         exp
       case "==" | "!=" | "<" | ">" | "<=" | ">=" =>
         val exp = types.Var("Bool")
         if (lhs != rhs)
-          throw CheckError(s"${n.lhs.pos}: Expected $lhs but found $rhs")
+          throw TypeError(s"${n.lhs.pos}: Expected $lhs but found $rhs")
         exp
     }
     val v = ((n, n.pos) -> NodeMeta(t, ""))
@@ -128,7 +128,7 @@ object findType {
       case "-" =>
         val exp = types.Var("Int")
         if (rhs != exp)
-          throw CheckError(s"${n.rhs.pos}: Expected $exp but found $rhs")
+          throw TypeError(s"${n.rhs.pos}: Expected $exp but found $rhs")
         exp
       case not => ???
     }
@@ -140,11 +140,11 @@ object findType {
   private def check(e: Env, s: String, n: ast.Static): (Env, Type) = {
     val t1 = types.Var("Unit")
     val s1 = s + "::" + n.name
-    val t2 = e.context.getVar(Sym(s, n.name)(n.pos))
+    val t2 = e.context.getVar(Symbol(s, n.name)(n.pos))
     val (e1, t3) = check(e, s1, n.value)
 
     if (t2 != t3)
-      throw CheckError(s"${n.pos}: Expected $t2 but found $t3")
+      throw TypeError(s"${n.pos}: Expected $t2 but found $t3")
 
     val v = ((n, n.pos) -> NodeMeta(t1, ""))
     ((e1.copy(archive = e1.archive + v)), t1)
@@ -156,15 +156,15 @@ object findType {
     case ast.Fun(nm, ps, rt, _) =>
       val p = ps.map(p => toType(p.typename))
       val r = toType(rt)
-      val c = e.context.addFun(Sym(s, nm)(n.pos), types.Fun(p :+ r))
+      val c = e.context.addFun(Symbol(s, nm)(n.pos), types.Fun(p :+ r))
       e.copy(context = c)
     case ast.Param(nm, tn) =>
       val t = toType(tn)
-      val c = e.context.addVar(Sym(s, nm)(n.pos), t)
+      val c = e.context.addVar(Symbol(s, nm)(n.pos), t)
       e.copy(context = c)
     case ast.Static(nm, tpn, _) =>
       val t = toType(tpn)
-      val c = e.context.addVar(Sym(s, nm)(n.pos), t)
+      val c = e.context.addVar(Symbol(s, nm)(n.pos), t)
       e.copy(context = c)
     case other => e
   }

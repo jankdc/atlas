@@ -4,14 +4,8 @@ import atlas.tokens.Token
 import scala.collection.mutable
 import scala.util.matching.Regex
 
-object lex {
-  def apply(s: String): Seq[Token] =
-    (mkTokens _  andThen
-    (_.mkIndent) andThen
-    (_.filterNot(_.isInstanceOf[tokens.WhiteSp])) andThen
-    (_.filterNot(_.isInstanceOf[tokens.Comment])))(s)
-
-  private def mkTokens(s: String): Seq[Token] = {
+object Lexer {
+  def mkTokens(s: String): Seq[Token] = {
     val buffer = mutable.Buffer[Token]()
     var source = s
     var pos = LinePos(1, 1)
@@ -33,6 +27,9 @@ object lex {
 
     buffer += tokens.EOF()(pos)
     buffer.toSeq
+          .mkIndent
+          .filterNot(_.isInstanceOf[tokens.WhiteSp])
+          .filterNot(_.isInstanceOf[tokens.Comment])
   }
 
   private def findLongest(s: String, p: LinePos): Token =
@@ -45,8 +42,7 @@ object lex {
           tokenGen(matched, p)
     }
 
-  private implicit
-  class TokenSeqOps(val ts: Seq[Token]) extends AnyVal {
+  private implicit class TokenOps(val ts: Seq[Token]) {
     def mkIndent: Seq[Token] = {
       if (ts.isEmpty) return Seq()
 

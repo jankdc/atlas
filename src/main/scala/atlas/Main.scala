@@ -1,5 +1,8 @@
 package atlas
 
+import atlas.Lexer.mkTokens
+import atlas.Parser.mkASTree
+import atlas.TypeSystem.collectTypes
 import atlas.tokens.Token
 import scala.io.Source
 
@@ -9,22 +12,22 @@ object Main extends App {
     val source = Source.fromURL(getClass.getResource(path)).mkString
     println(s"Location: $path")
 
-    val tokens = lex(source)
+    val tokens = mkTokens(source)
     println(s"Tokens:")
     println(tokens.map(toString(_)).mkString("\n"))
 
-    val astRoot = parse(tokens)
+    val astree = mkASTree(tokens)
     println("ASTree:")
-    println(astRoot)
+    println(astree)
 
     val prelude = Set("Unit", "Int")
     val context = Context(prelude, Map())
-    val topType = findType(Env(Map(), context), astRoot)
+    val topType = collectTypes(Env(Map(), context), astree)
   }
   catch {
-    case err: ParseError =>
+    case err: ParserError =>
       println(s"[error]${err.getMessage}")
-    case err: CheckError =>
+    case err: TypeError =>
       println(s"[error]${err.getMessage}")
   }
 
