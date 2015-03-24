@@ -22,27 +22,28 @@ object CodeGen {
     case others         => ???
   }
 
-  private def gen(n: ast.Integer)(implicit m: NodeMap): Seq[String] = ???
+  private def gen(n: ast.Integer, id: Int)(implicit m: NodeMap): Seq[String] = ???
 
-  private def gen(n: ast.Boolean)(implicit m: NodeMap): Seq[String] = ???
+  private def gen(n: ast.Boolean, id: Int)(implicit m: NodeMap): Seq[String] = ???
 
-  private def gen(n: ast.NamedId)(implicit m: NodeMap): Seq[String] = ???
+  private def gen(n: ast.NamedId, id: Int)(implicit m: NodeMap): Seq[String] = ???
 
-  private def gen(n: ast.Static)(implicit m: NodeMap): Seq[String] = ???
+  private def gen(n: ast.Static, id: Int)(implicit m: NodeMap): Seq[String] = ???
 
-  private def gen(n: ast.BinOp)(implicit m: NodeMap): Seq[String] = ???
+  private def gen(n: ast.BinOp, id: Int)(implicit m: NodeMap): Seq[String] = ???
 
-  private def gen(n: ast.UnaOp)(implicit m: NodeMap): Seq[String] = ???
+  private def gen(n: ast.UnaOp, id: Int)(implicit m: NodeMap): Seq[String] = ???
 
-  private def gen(n: ast.Let)(implicit m: NodeMap): Seq[String] = ???
+  private def gen(n: ast.Let, id: Int)(implicit m: NodeMap): Seq[String] = ???
 
-  private def gen(n: ast.Mut)(implicit m: NodeMap): Seq[String] = ???
+  private def gen(n: ast.Mut, id: Int)(implicit m: NodeMap): Seq[String] = ???
 
-  private def gen(n: ast.Fun)(implicit m: NodeMap): Seq[String] = ???
+  private def gen(n: ast.Fun, id: Int)(implicit m: NodeMap): Seq[String] = ???
 
-  private def gen(n: ast.Top)(implicit m: NodeMap): Seq[String] = ???
+  private def gen(n: ast.Top, id: Int)(implicit m: NodeMap): Seq[String] = ???
 
-  private def gen(n: ast.Nop)(implicit m: NodeMap): Seq[String] = ???
+  private def gen(n: ast.Nop, id: Int)(implicit m: NodeMap): Seq[String] = ???
 
-  private def gen(n: ast.App)(implicit m: NodeMap): Seq[String] = ???
+  private def gen(n: ast.App, id: Int)(implicit m: NodeMap): Seq[String] = ???
 }
+
