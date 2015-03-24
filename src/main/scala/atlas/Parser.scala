@@ -129,7 +129,15 @@ object Parser {
     val anymsg = "an atomic expression"
     val integr = one("Integer")
     val nameid = one("NamedId")
-    val parser = any(anymsg, parens, integr, parseApp, nameid, parseUnaOp)
+    val boolvl = any("boolean expression", key("false"), key("true"))
+    val parser = any(anymsg,
+      parens,
+      integr,
+      parseApp,
+      nameid,
+      parseUnaOp,
+      boolvl)
+
     val result = parser(ts)
     result
   }
@@ -293,6 +301,10 @@ object Parser {
       case tokens.Reserve(`s`) +: rest  =>
         if (s == "pass")
           (Seq(ast.Nop()(ts.head.pos)), rest)
+        else if (s == "true")
+          (Seq(ast.Boolean(true)(ts.head.pos)), rest)
+        else if (s == "false")
+          (Seq(ast.Boolean(false)(ts.head.pos)), rest)
         else if (precedenceMap contains s)
           (Seq(ast.Operator(s)(ts.head.pos)), rest)
         else
@@ -349,8 +361,8 @@ object Parser {
     def report(s: String): ParserError =
       ts.headOption match {
         case Some(t) =>
-          val s = if (t.raw == "\n") "\\n" else t.raw
-          val m = s"${t.pos}: Expected $s but got '$s'."
+          val e = if (t.raw == "\n") "\\n" else t.raw
+          val m = s"${t.pos}: Expected $s but got '$e'."
           ParserError(ts.length, m)
         case None =>
           val m = s"Expected $s, but reached end of file."
