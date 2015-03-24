@@ -124,6 +124,8 @@ object Lexer {
     buffer += "(pass)"
     buffer += "(mut)"
     buffer += "(let)"
+    buffer += "(true)"
+    buffer += "(false)"
     buffer += "(fn)"
     buffer += "(as)"
     buffer += "(\\()"
