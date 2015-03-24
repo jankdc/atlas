@@ -4,11 +4,7 @@ import atlas.ast.Node
 import atlas.types.Type
 
 object CodeGen {
-  type NodeMap = Map[(Node, LinePos), Type]
-
-  def genLLVM(n: Node)(implicit m: NodeMap): Seq[String] = {
-    gen(n, 0)
-  }
+  def genLLVM(n: Node)(implicit m: NodeMap): Seq[String] = gen(n, 0)
 
   private def gen(n: Node, id: Int)(implicit m: NodeMap): Seq[String] = n match {
     case n: ast.Integer => gen(n, id)

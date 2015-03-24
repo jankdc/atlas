@@ -4,12 +4,10 @@ import atlas.ast.Node
 import atlas.types.Type
 
 object TypeSystem {
-  type NodeMap = Map[(Node, LinePos), NodeMeta]
-
   case class Env(archive: NodeMap, context: Context)
 
   def collectTypes(c: Context, n: Node): NodeMap =
-    check(Env(Map(), c), "", n) match { case (e, _) => e.archive }
+    check(Env(NodeMap(Map()), c), "", n) match { case (e, _) => e.archive }
 
   private def check(e: Env, s: String, n: Node): (Env, Type) = n match {
     case n: ast.Integer => check(e, s, n)
@@ -29,26 +27,20 @@ object TypeSystem {
 
   private def check(e: Env, s: String, n: ast.Integer): (Env, Type) = {
     val t = types.Var("Int")
-    val k = (n, n.pos)
     val v = NodeMeta(t, None)
-    val p = (k -> v)
-    (e.copy(archive = e.archive + p), t)
+    (e.copy(archive = e.archive.add(n, v)), t)
   }
 
   private def check(e: Env, s: String, n: ast.Boolean): (Env, Type) = {
     val t = types.Var("Boolean")
-    val k = (n, n.pos)
     val v = NodeMeta(t, None)
-    val p = (k -> v)
-    (e.copy(archive = e.archive + p), t)
+    (e.copy(archive = e.archive.add(n, v)), t)
   }
 
   private def check(e: Env, s: String, n: ast.NamedId): (Env, Type) = {
     val (sym, t) = e.context.getDef(n.name, n.pos)
-    val k = (n, n.pos)
     val v = NodeMeta(t, Some(sym))
-    val p = (k -> v)
-    (e.copy(archive = e.archive + p), t)
+    (e.copy(archive = e.archive.add(n, v)), t)
   }
 
   private def check(e: Env, s: String, n: ast.Let): (Env, Type) = {
@@ -56,11 +48,9 @@ object TypeSystem {
     val sm = Symbol(s, n.name)(n.pos, false, true)
     val (e1, t) = check(e, sn, n.value)
     val c = e1.context.addDef(sm, t)
-    val k = (n, n.pos)
     val v = NodeMeta(t, Some(sm))
-    val p = (k -> v)
 
-    ((Env(e1.archive + p, c)), types.Var("Unit"))
+    ((Env(e1.archive.add(n, v), c)), types.Var("Unit"))
   }
 
   private def check(e: Env, s: String, n: ast.Mut): (Env, Type) = {
@@ -68,11 +58,9 @@ object TypeSystem {
     val sm = Symbol(s, n.name)(n.pos, false, false)
     val (e1, t) = check(e, sn, n.value)
     val c = e1.context.addDef(sm, t)
-    val k = (n, n.pos)
     val v = NodeMeta(t, Some(sm))
-    val p = (k -> v)
 
-    ((Env(e1.archive + p, c)), types.Var("Unit"))
+    ((Env(e1.archive.add(n, v), c)), types.Var("Unit"))
   }
 
   private def check(e: Env, s: String, n: ast.Fun): (Env, Type) = {
@@ -107,19 +95,15 @@ object TypeSystem {
       e1
     }
 
-    val k = (n, n.pos)
     val v = NodeMeta(t1, None)
-    val p = (k -> v)
 
-    (e2.copy(archive = e2.archive + p), t1)
+    (e2.copy(archive = e2.archive.add(n, v)), t1)
   }
 
   private def check(e: Env, s: String, n: ast.Nop): (Env, Type) = {
     val t = types.Var("Unit")
-    val k = (n, n.pos)
     val v = NodeMeta(t, None)
-    val p = (k -> v)
-    (e.copy(archive = e.archive + p), t)
+    (e.copy(archive = e.archive.add(n, v)), t)
   }
 
   private def check(e: Env, s: String, n: ast.App): (Env, Type) = {
@@ -129,10 +113,8 @@ object TypeSystem {
     }
     val args = "(" + t1.mkString(", ") + ")"
     val (sm, t2) = e3.context.getDef(n.name + args, n.pos)
-    val k = (n, n.pos)
     val v = NodeMeta(t2, Some(sm))
-    val p = (k -> v)
-    (e3.copy(archive = e3.archive + p), t2)
+    (e3.copy(archive = e3.archive.add(n, v)), t2)
   }
 
   private def check(e: Env, s: String, n: ast.BinOp): (Env, Type) = {
@@ -155,8 +137,9 @@ object TypeSystem {
     }
 
     val p = ((n, n.pos) -> NodeMeta(t, None))
+    val v = NodeMeta(t, None)
 
-    ((e2.copy(archive = e2.archive + p)), t)
+    ((e2.copy(archive = e2.archive.add(n, v))), t)
   }
 
   private def check(e: Env, s: String, n: ast.UnaOp): (Env, Type) = {
@@ -170,7 +153,8 @@ object TypeSystem {
       case not => ???
     }
     val p = ((n, n.pos) -> NodeMeta(t, None))
-    ((e1.copy(archive = e1.archive + p)), t)
+    val v = NodeMeta(t, None)
+    ((e1.copy(archive = e1.archive.add(n, v))), t)
   }
 
   private def check(e: Env, s: String, n: ast.Static): (Env, Type) = {
@@ -182,8 +166,8 @@ object TypeSystem {
     if (t2 != t3)
       throw TypeError(s"${n.pos}: Expected $t2 but found $t3")
 
-    val v = ((n, n.pos) -> NodeMeta(t1, Some(sm)))
-    ((e1.copy(archive = e1.archive + v)), t1)
+    val v = NodeMeta(t1, Some(sm))
+    ((e1.copy(archive = e1.archive.add(n, v))), t1)
   }
 
   private def collect(e: Env, s: String, n: Node): Env = n match {
