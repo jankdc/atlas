@@ -10,6 +10,7 @@ object CodeGen {
 
   private def gen(e: GenEnv, s: String, n: Node): Seq[String] = n match {
     case n: ast.Integer => gen(e, s, n)
+    case n: ast.Boolean => gen(e, s, n)
     case n: ast.NamedId => gen(e, s, n)
     case n: ast.Let     => gen(e, s, n)
     case n: ast.Mut     => gen(e, s, n)
@@ -24,6 +25,8 @@ object CodeGen {
   }
 
   private def gen(e: GenEnv, s: String, n: ast.Integer): Seq[String] = ???
+
+  private def gen(e: GenEnv, s: String, n: ast.Boolean): Seq[String] = ???
 
   private def gen(e: GenEnv, s: String, n: ast.NamedId): Seq[String] = ???
 
