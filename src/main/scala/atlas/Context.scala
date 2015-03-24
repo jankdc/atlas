@@ -27,7 +27,6 @@ case class Context(defTypes: Set[String], bindings: Map[Symbol, Type]) {
 
   private def checkType(p: LinePos, t: Type): Unit = t match {
     case types.Fun(terms) => terms.foreach(checkType(p, _))
-    case types.App(_, ts) => checkType(p, t)
     case types.Var(tname) =>
       if (! defTypes.contains(tname))
         throw TypeError(s"$p: Type is not found: $tname")
