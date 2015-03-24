@@ -2,7 +2,6 @@ package atlas
 
 import atlas.types.Type
 import atlas.ast.Node
-import atlas.meta.NodeMeta
 
 case class Env(archive: Map[NodeKey, NodeMeta], context: Context)
 

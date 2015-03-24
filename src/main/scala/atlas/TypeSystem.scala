@@ -2,7 +2,6 @@ package atlas
 
 import atlas.ast.Node
 import atlas.types.Type
-import atlas.meta.NodeMeta
 
 object TypeSystem {
   def collectTypes(e: Env, n: Node): (Env, Type) = check(e, "", n)
@@ -24,34 +23,42 @@ object TypeSystem {
 
   private def check(e: Env, s: String, n: ast.Integer): (Env, Type) = {
     val t = types.Var("Int")
-    val v = ((n, n.pos) -> NodeMeta(t, ""))
-    (e.copy(archive = e.archive + v), t)
+    val k = (n, n.pos)
+    val v = NodeMeta(t, None)
+    val p = (k -> v)
+    (e.copy(archive = e.archive + p), t)
   }
 
   private def check(e: Env, s: String, n: ast.NamedId): (Env, Type) = {
-    val t = e.context.getVar(Symbol(s, n.name)(n.pos))
-    val v = ((n, n.pos) -> NodeMeta(t, ""))
-    (e.copy(archive = e.archive + v), t)
+    val (sym, t) = e.context.getDef(n.name, n.pos)
+    val k = (n, n.pos)
+    val v = NodeMeta(t, Some(sym))
+    val p = (k -> v)
+    (e.copy(archive = e.archive + p), t)
   }
 
   private def check(e: Env, s: String, n: ast.Let): (Env, Type) = {
-    val s1 = s + "::" + n.name
-    val (e1, t) = check(e, s1, n.value)
-    val c1 = e.context.addVar(Symbol(s, n.name)(n.pos), t)
-    val t1 = types.Var("Unit")
-    val va = ((n, n.pos) -> NodeMeta(t1, ""))
+    val sn = s + "::" + n.name
+    val sm = Symbol(s, n.name)(n.pos, false, true)
+    val (e1, t) = check(e, sn, n.value)
+    val c = e1.context.addDef(sm, t)
+    val k = (n, n.pos)
+    val v = NodeMeta(t, Some(sm))
+    val p = (k -> v)
 
-    ((Env(e.archive + va, c1)), t1)
+    ((Env(e1.archive + p, c)), types.Var("Unit"))
   }
 
   private def check(e: Env, s: String, n: ast.Mut): (Env, Type) = {
-    val s1 = s + "::" + n.name
-    val (e1, t) = check(e, s1, n.value)
-    val c1 = e.context.addVar(Symbol(s, n.name)(n.pos), t)
-    val t1 = types.Var("Unit")
-    val va = ((n, n.pos) -> NodeMeta(t1, ""))
+    val sn = s + "::" + n.name
+    val sm = Symbol(s, n.name)(n.pos, false, false)
+    val (e1, t) = check(e, sn, n.value)
+    val c = e1.context.addDef(sm, t)
+    val k = (n, n.pos)
+    val v = NodeMeta(t, Some(sm))
+    val p = (k -> v)
 
-    ((Env(e.archive + va, c1)), t1)
+    ((Env(e1.archive + p, c)), types.Var("Unit"))
   }
 
   private def check(e: Env, s: String, n: ast.Fun): (Env, Type) = {
@@ -59,16 +66,18 @@ object TypeSystem {
     val e1 = n.params.foldLeft(e) { case (e, n) => collect(e, s1, n) }
     val e2 = n.body.foldLeft(e1)  { case (e, n) => collect(e, s1, n) }
 
-    val (e3, ts) = n.body.foldLeft(e2, Seq[Type]()) { case ((e, ts), n) =>
-      val (e4, t) = check(e, s1, n)
-      (e4, ts :+ t)
+    val (e3, ts) = n.body.foldLeft(e2, Seq[Type]()) {
+      case ((e, ts), n) =>
+        check(e, s1, n) match { case (e4, t) => (e4, ts :+ t) }
     }
 
     val bt = ts.last
     val rt = toType(n.ret)
 
-    if (bt != rt)
+    if (bt != rt) {
+      println(ts)
       throw TypeError(s"${n.body.last.pos}: Expected $rt but found $bt")
+    }
 
     (e3.copy(context = e.context), types.Var("Unit"))
   }
@@ -76,34 +85,46 @@ object TypeSystem {
   private def check(e: Env, s: String, n: ast.Top): (Env, Type) = {
     val t1 = types.Var("Unit")
     val e1 = collect(e, s, n)
+
     val e2 = n.nodes.foldLeft(e1) { case (e, n) =>
       val (e1, t2) = check(e, s, n)
       if (t1 != t2)
         throw TypeError(s"${n.pos}: Expected $t1 but found $t2")
       e1
     }
-    (e2, t1)
+
+    val k = (n, n.pos)
+    val v = NodeMeta(t1, None)
+    val p = (k -> v)
+
+    (e2.copy(archive = e2.archive + p), t1)
   }
 
   private def check(e: Env, s: String, n: ast.Nop): (Env, Type) = {
     val t = types.Var("Unit")
-    val v = ((n, n.pos) -> NodeMeta(t, ""))
-    (e.copy(archive = e.archive + v), t)
+    val k = (n, n.pos)
+    val v = NodeMeta(t, None)
+    val p = (k -> v)
+    (e.copy(archive = e.archive + p), t)
   }
 
   private def check(e: Env, s: String, n: ast.App): (Env, Type) = {
-    val (e2, t1) = n.args.foldLeft(e, Seq[Type]()) { case ((env, ts), n) =>
-      val (e2, t) = check(env, s, n)
-      (e2, ts :+ t)
+    val (e3, t1) = n.args.foldLeft(e, Seq[Type]()) {
+      case ((e1, ts), n) =>
+        check(e1, s, n) match { case (e2, t) => (e2, ts :+ t) }
     }
-    val (s1, t2) = e2.context.getFun(Symbol(s, n.name)(n.pos), t1)
-    val v = ((n, n.pos) -> NodeMeta(t2, s1))
-    (e.copy(archive = e.archive + v), t2)
+    val args = "(" + t1.mkString(", ") + ")"
+    val (sm, t2) = e3.context.getDef(n.name + args, n.pos)
+    val k = (n, n.pos)
+    val v = NodeMeta(t2, Some(sm))
+    val p = (k -> v)
+    (e3.copy(archive = e3.archive + p), t2)
   }
 
   private def check(e: Env, s: String, n: ast.BinOp): (Env, Type) = {
     val (e1, lhs) = check(e , s, n.lhs)
     val (e2, rhs) = check(e1, s, n.rhs)
+
     val t = n.op match {
       case "+" | "-" | "/" | "*" =>
         val exp = types.Var("Int")
@@ -113,13 +134,15 @@ object TypeSystem {
           throw TypeError(s"${n.rhs.pos}: Expected $exp but found $rhs")
         exp
       case "==" | "!=" | "<" | ">" | "<=" | ">=" =>
-        val exp = types.Var("Bool")
+        val exp = types.Var("Boolean")
         if (lhs != rhs)
           throw TypeError(s"${n.lhs.pos}: Expected $lhs but found $rhs")
         exp
     }
-    val v = ((n, n.pos) -> NodeMeta(t, ""))
-    ((e2.copy(archive = e2.archive + v)), t)
+
+    val p = ((n, n.pos) -> NodeMeta(t, None))
+
+    ((e2.copy(archive = e2.archive + p)), t)
   }
 
   private def check(e: Env, s: String, n: ast.UnaOp): (Env, Type) = {
@@ -132,21 +155,20 @@ object TypeSystem {
         exp
       case not => ???
     }
-
-    val v = ((n, n.pos) -> NodeMeta(t, ""))
-    ((e1.copy(archive = e1.archive + v)), t)
+    val p = ((n, n.pos) -> NodeMeta(t, None))
+    ((e1.copy(archive = e1.archive + p)), t)
   }
 
   private def check(e: Env, s: String, n: ast.Static): (Env, Type) = {
     val t1 = types.Var("Unit")
     val s1 = s + "::" + n.name
-    val t2 = e.context.getVar(Symbol(s, n.name)(n.pos))
+    val (sm, t2) = e.context.getDef(n.name, n.pos)
     val (e1, t3) = check(e, s1, n.value)
 
     if (t2 != t3)
       throw TypeError(s"${n.pos}: Expected $t2 but found $t3")
 
-    val v = ((n, n.pos) -> NodeMeta(t1, ""))
+    val v = ((n, n.pos) -> NodeMeta(t1, Some(sm)))
     ((e1.copy(archive = e1.archive + v)), t1)
   }
 
@@ -156,15 +178,19 @@ object TypeSystem {
     case ast.Fun(nm, ps, rt, _) =>
       val p = ps.map(p => toType(p.typename))
       val r = toType(rt)
-      val c = e.context.addFun(Symbol(s, nm)(n.pos), types.Fun(p :+ r))
+      val a = "(" + p.mkString(", ") + ")"
+      val b = Symbol(s, nm, a)(n.pos, true, true)
+      val c = e.context.addDef(b, r)
       e.copy(context = c)
     case ast.Param(nm, tn) =>
       val t = toType(tn)
-      val c = e.context.addVar(Symbol(s, nm)(n.pos), t)
+      val b = Symbol(s, nm)(n.pos, false, true)
+      val c = e.context.addDef(b, t)
       e.copy(context = c)
     case ast.Static(nm, tpn, _) =>
       val t = toType(tpn)
-      val c = e.context.addVar(Symbol(s, nm)(n.pos), t)
+      val b = Symbol(s, nm)(n.pos, true, true)
+      val c = e.context.addDef(b, t)
       e.copy(context = c)
     case other => e
   }

@@ -1,3 +1,5 @@
+static something: Int = 32
+
 fn main(args: Int): Int
 
   let name = foo(2)
@@ -6,7 +8,8 @@ fn main(args: Int): Int
   fn foo(n: Int): Unit
     pass
 
-  23
+  something + fibo(john, 32)
+
 
 fn something(): Int
   23
@@ -19,3 +22,5 @@ fn fibo(m: Int, h: Int): Int
   m
   h
 
+fn isSame(n: Int, m: Int): Boolean
+  n == m

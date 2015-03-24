@@ -3,6 +3,14 @@ package types
 
 sealed trait Type
 
-case class Fun(terms: Seq[Type]) extends Type
-case class App(name: String, ret: Type) extends Type
-case class Var(name: String) extends Type
+case class Fun(terms: Seq[Type]) extends Type {
+  override def toString = "(" + terms.mkString(", ") + ")"
+}
+
+case class App(name: String, ret: Type) extends Type {
+  override def toString = s"$name($ret)"
+}
+
+case class Var(name: String) extends Type {
+  override def toString = name
+}

@@ -20,7 +20,7 @@ object Main extends App {
     println("ASTree:")
     println(astree)
 
-    val prelude = Set("Unit", "Int")
+    val prelude = Set("Unit", "Int", "Boolean")
     val context = Context(prelude, Map())
     val topType = collectTypes(Env(Map(), context), astree)
   }
