@@ -3,48 +3,50 @@ package atlas
 import atlas.ast.Node
 import atlas.types.Type
 
-case class GenEnv(arc: Map[(Node, LinePos), Type], acc: Int)
-
 object CodeGen {
-  def genLLVM(e: GenEnv, s: String, n: Node): Seq[String] = gen(e, "", n)
+  type NodeMap = Map[(Node, LinePos), Type]
 
-  private def gen(e: GenEnv, s: String, n: Node): Seq[String] = n match {
-    case n: ast.Integer => gen(e, s, n)
-    case n: ast.Boolean => gen(e, s, n)
-    case n: ast.NamedId => gen(e, s, n)
-    case n: ast.Let     => gen(e, s, n)
-    case n: ast.Mut     => gen(e, s, n)
-    case n: ast.Fun     => gen(e, s, n)
-    case n: ast.Top     => gen(e, s, n)
-    case n: ast.App     => gen(e, s, n)
-    case n: ast.Static  => gen(e, s, n)
-    case n: ast.BinOp   => gen(e, s, n)
-    case n: ast.UnaOp   => gen(e, s, n)
-    case n: ast.Nop     => gen(e, s, n)
+  def genLLVM(n: Node)(implicit m: NodeMap): Seq[String] = {
+    gen(n, 0)
+  }
+
+  private def gen(n: Node, id: Int)(implicit m: NodeMap): Seq[String] = n match {
+    case n: ast.Integer => gen(n, id)
+    case n: ast.Boolean => gen(n, id)
+    case n: ast.NamedId => gen(n, id)
+    case n: ast.Let     => gen(n, id)
+    case n: ast.Mut     => gen(n, id)
+    case n: ast.Fun     => gen(n, id)
+    case n: ast.Top     => gen(n, id)
+    case n: ast.App     => gen(n, id)
+    case n: ast.Static  => gen(n, id)
+    case n: ast.BinOp   => gen(n, id)
+    case n: ast.UnaOp   => gen(n, id)
+    case n: ast.Nop     => gen(n, id)
     case others         => ???
   }
 
-  private def gen(e: GenEnv, s: String, n: ast.Integer): Seq[String] = ???
+  private def gen(n: ast.Integer)(implicit m: NodeMap): Seq[String] = ???
 
-  private def gen(e: GenEnv, s: String, n: ast.Boolean): Seq[String] = ???
+  private def gen(n: ast.Boolean)(implicit m: NodeMap): Seq[String] = ???
 
-  private def gen(e: GenEnv, s: String, n: ast.NamedId): Seq[String] = ???
+  private def gen(n: ast.NamedId)(implicit m: NodeMap): Seq[String] = ???
 
-  private def gen(e: GenEnv, s: String, n: ast.Static): Seq[String] = ???
+  private def gen(n: ast.Static)(implicit m: NodeMap): Seq[String] = ???
 
-  private def gen(e: GenEnv, s: String, n: ast.BinOp): Seq[String] = ???
+  private def gen(n: ast.BinOp)(implicit m: NodeMap): Seq[String] = ???
 
-  private def gen(e: GenEnv, s: String, n: ast.UnaOp): Seq[String] = ???
+  private def gen(n: ast.UnaOp)(implicit m: NodeMap): Seq[String] = ???
 
-  private def gen(e: GenEnv, s: String, n: ast.Let): Seq[String] = ???
+  private def gen(n: ast.Let)(implicit m: NodeMap): Seq[String] = ???
 
-  private def gen(e: GenEnv, s: String, n: ast.Mut): Seq[String] = ???
+  private def gen(n: ast.Mut)(implicit m: NodeMap): Seq[String] = ???
 
-  private def gen(e: GenEnv, s: String, n: ast.Fun): Seq[String] = ???
+  private def gen(n: ast.Fun)(implicit m: NodeMap): Seq[String] = ???
 
-  private def gen(e: GenEnv, s: String, n: ast.Top): Seq[String] = ???
+  private def gen(n: ast.Top)(implicit m: NodeMap): Seq[String] = ???
 
-  private def gen(e: GenEnv, s: String, n: ast.Nop): Seq[String] = ???
+  private def gen(n: ast.Nop)(implicit m: NodeMap): Seq[String] = ???
 
-  private def gen(e: GenEnv, s: String, n: ast.App): Seq[String] = ???
+  private def gen(n: ast.App)(implicit m: NodeMap): Seq[String] = ???
 }
