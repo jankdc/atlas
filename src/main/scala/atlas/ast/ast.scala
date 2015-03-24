@@ -84,3 +84,8 @@ case class Integer(value: Int)
   (val pos: LinePos) extends Node {
   override def toString = value.toString
 }
+
+case class Boolean(value: scala.Boolean)
+  (val pos: LinePos) extends Node {
+  override def toString = value.toString
+}
