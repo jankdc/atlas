@@ -3,6 +3,7 @@ package atlas
 import atlas.Lexer.mkTokens
 import atlas.Parser.mkASTree
 import atlas.TypeSystem.collectTypes
+import atlas.CodeGen.genLLVM
 import atlas.tokens.Token
 import scala.io.Source
 
@@ -23,6 +24,10 @@ object Main extends App {
     val prelude = Set("Unit", "Int", "Boolean")
     val context = Context(prelude, Map())
     val nodeMap = collectTypes(context, astree)
+
+    val genCode = genLLVM(astree)(nodeMap)
+    println("LLVM IR:")
+    println(genCode.mkString("\n"))
   }
   catch {
     case err: ParserError =>
