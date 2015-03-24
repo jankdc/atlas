@@ -13,6 +13,7 @@ object TypeSystem {
 
   private def check(e: Env, s: String, n: Node): (Env, Type) = n match {
     case n: ast.Integer => check(e, s, n)
+    case n: ast.Boolean => check(e, s, n)
     case n: ast.NamedId => check(e, s, n)
     case n: ast.Let     => check(e, s, n)
     case n: ast.Mut     => check(e, s, n)
@@ -28,6 +29,14 @@ object TypeSystem {
 
   private def check(e: Env, s: String, n: ast.Integer): (Env, Type) = {
     val t = types.Var("Int")
+    val k = (n, n.pos)
+    val v = NodeMeta(t, None)
+    val p = (k -> v)
+    (e.copy(archive = e.archive + p), t)
+  }
+
+  private def check(e: Env, s: String, n: ast.Boolean): (Env, Type) = {
+    val t = types.Var("Boolean")
     val k = (n, n.pos)
     val v = NodeMeta(t, None)
     val p = (k -> v)
