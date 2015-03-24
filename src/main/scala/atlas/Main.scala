@@ -22,7 +22,7 @@ object Main extends App {
 
     val prelude = Set("Unit", "Int", "Boolean")
     val context = Context(prelude, Map())
-    val topType = collectTypes(Env(Map(), context), astree)
+    val nodeMap = collectTypes(context, astree)
   }
   catch {
     case err: ParserError =>

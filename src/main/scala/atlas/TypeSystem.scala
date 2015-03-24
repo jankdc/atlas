@@ -4,7 +4,12 @@ import atlas.ast.Node
 import atlas.types.Type
 
 object TypeSystem {
-  def collectTypes(e: Env, n: Node): (Env, Type) = check(e, "", n)
+  type NodeMap = Map[(Node, LinePos), NodeMeta]
+
+  case class Env(archive: NodeMap, context: Context)
+
+  def collectTypes(c: Context, n: Node): NodeMap =
+    check(Env(Map(), c), "", n) match { case (e, _) => e.archive }
 
   private def check(e: Env, s: String, n: Node): (Env, Type) = n match {
     case n: ast.Integer => check(e, s, n)
@@ -187,16 +192,17 @@ object TypeSystem {
       val b = Symbol(s, nm)(n.pos, false, true)
       val c = e.context.addDef(b, t)
       e.copy(context = c)
-    case ast.Static(nm, tpn, _) =>
-      val t = toType(tpn)
+    case ast.Static(nm, tn, _) =>
+      val t = toType(tn)
       val b = Symbol(s, nm)(n.pos, true, true)
       val c = e.context.addDef(b, t)
       e.copy(context = c)
-    case other => e
+    case other =>
+      e
   }
 
   private def toType(n: ast.Node): Type = n match {
-    case ast.Type(Seq(ast.NamedId(nm))) => types.Var(nm)
+    case ast.Type(Seq(n)) => toType(n)
     case ast.Type(many) => types.Fun(many.map(toType))
     case ast.NamedId(n) => types.Var(n)
     case other => ???
