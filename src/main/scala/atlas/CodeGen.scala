@@ -40,10 +40,28 @@ object CodeGen {
 
   private def gen(n: ast.Fun, id: Int)(implicit m: NodeMap): Seq[String] = ???
 
-  private def gen(n: ast.Top, id: Int)(implicit m: NodeMap): Seq[String] = ???
+  private def gen(n: ast.Top, id: Int)(implicit m: NodeMap): Seq[String] = {
+    Seq(targetTriple)
+  }
 
   private def gen(n: ast.Nop, id: Int)(implicit m: NodeMap): Seq[String] = ???
 
   private def gen(n: ast.App, id: Int)(implicit m: NodeMap): Seq[String] = ???
+
+  private val targetTriple: String = {
+    val arch = System.getProperty("os.arch")
+    val osName = System.getProperty("os.name").toLowerCase.filter(_ != ' ')
+    val osVersion = System.getProperty("os.version")
+
+    // TODO: This is only temporary because not all OS X is in Apple hardware
+    // and not all linux are in PC hardware.
+    val osVendor = osName match {
+      case "macosx" => "apple"
+      case "linux"  => "pc"
+      case _        => "unknown"
+    }
+
+    s"target triple $arch-$osVendor-$osName$osVersion"
+  }
 }
 
