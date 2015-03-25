@@ -41,12 +41,15 @@ object CodeGen {
   private def gen(n: ast.Fun, id: Int)(implicit m: NodeMap): Seq[String] = ???
 
   private def gen(n: ast.Top, id: Int)(implicit m: NodeMap): Seq[String] = {
-    Seq(targetTriple)
+    Seq(targetLayout, targetTriple)
   }
 
   private def gen(n: ast.Nop, id: Int)(implicit m: NodeMap): Seq[String] = ???
 
   private def gen(n: ast.App, id: Int)(implicit m: NodeMap): Seq[String] = ???
+
+  private val targetLayout: String =
+    "target datalayout E-S128-m:o-n8:16:32:64-f80:128-i64:64"
 
   private val targetTriple: String = {
     val arch = System.getProperty("os.arch")
