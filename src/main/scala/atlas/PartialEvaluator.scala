@@ -38,7 +38,7 @@ object PartialEvaluator {
             case "!=" => ast.Boolean(l != r)(n.pos)
             case _ => ???
           }
-        case _ => n
+        case _ => n.copy(lhs, n.op, rhs)(n.pos)
       }
     case n: ast.UnaOp   =>
       val rhs = partEval(n.rhs)
@@ -54,7 +54,7 @@ object PartialEvaluator {
             case "!" => ast.Boolean(!r)(n.pos)
             case _ => ???
           }
-        case _ => n
+        case _ => n.copy(n.op, rhs)(n.pos)
       }
 
     case n: ast.Nop     => n
