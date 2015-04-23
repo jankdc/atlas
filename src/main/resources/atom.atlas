@@ -12,6 +12,9 @@ fn main(args: Int): Int
 
 
 fn something(): Int
+  static something_else: Int = 32 + 323
+  static boolean_value: Boolean = (false == true)
+
   23
 
 fn fibo(n: Int): Int
