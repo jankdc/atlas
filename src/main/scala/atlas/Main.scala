@@ -3,6 +3,7 @@ package atlas
 import atlas.Lexer.mkTokens
 import atlas.Parser.mkASTree
 import atlas.TypeSystem.collectTypes
+import atlas.PartialEvaluator.partEval
 import atlas.CodeGen.genLLVM
 import atlas.tokens.Token
 import scala.io.Source
@@ -18,14 +19,15 @@ object Main extends App {
     println(tokens.map(toString(_)).mkString("\n"))
 
     val astree = mkASTree(tokens)
+    val petree = partEval(astree)
     println("ASTree:")
-    println(astree)
+    println(petree)
 
     val prelude = Set("Unit", "Int", "Boolean")
     val context = Context(prelude, Map())
-    val nodeMap = collectTypes(context, astree)
+    val nodeMap = collectTypes(context, petree)
 
-    val genCode = genLLVM(astree)(nodeMap)
+    val genCode = genLLVM(petree)(nodeMap)
     println("LLVM IR:")
     println(genCode.mkString("\n"))
   }
@@ -33,6 +35,8 @@ object Main extends App {
     case err: ParserError =>
       println(s"[error]${err.getMessage}")
     case err: TypeError =>
+      println(s"[error]${err.getMessage}")
+    case err: CodeGenError =>
       println(s"[error]${err.getMessage}")
   }
 
