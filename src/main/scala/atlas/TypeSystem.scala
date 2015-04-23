@@ -44,7 +44,7 @@ object TypeSystem {
   }
 
   private def check(e: Env, s: String, n: ast.Let): (Env, Type) = {
-    val sn = s + "::" + n.name
+    val sn = s + n.name + "_"
     val sm = Symbol(s, n.name)(n.pos, false, true)
     val (e1, t) = check(e, sn, n.value)
     val c = e1.context.addDef(sm, t)
@@ -54,7 +54,7 @@ object TypeSystem {
   }
 
   private def check(e: Env, s: String, n: ast.Mut): (Env, Type) = {
-    val sn = s + "::" + n.name
+    val sn = s + n.name + "_"
     val sm = Symbol(s, n.name)(n.pos, false, false)
     val (e1, t) = check(e, sn, n.value)
     val c = e1.context.addDef(sm, t)
@@ -64,7 +64,7 @@ object TypeSystem {
   }
 
   private def check(e: Env, s: String, n: ast.Fun): (Env, Type) = {
-    val s1 = s + "::" + n.name
+    val s1 = s + n.name + "_"
     val e1 = n.params.foldLeft(e) { case (e, n) => collect(e, s1, n) }
     val e2 = n.body.foldLeft(e1)  { case (e, n) => collect(e, s1, n) }
 
@@ -159,7 +159,7 @@ object TypeSystem {
 
   private def check(e: Env, s: String, n: ast.Static): (Env, Type) = {
     val t1 = types.Var("Unit")
-    val s1 = s + "::" + n.name
+    val s1 = s + n.name + "_"
     val (sm, t2) = e.context.getDef(n.name, n.pos)
     val (e1, t3) = check(e, s1, n.value)
 
