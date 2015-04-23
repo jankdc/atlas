@@ -53,6 +53,7 @@ object Parser {
       passStmt,
       parseLet,
       parseMut,
+      parseStatic,
       parseFun)
 
     parser(ts)
