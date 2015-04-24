@@ -1,9 +1,9 @@
 static something: Int = 32
 
-fn main(args: Int): Int
+fn main(): Int
 
   let name = foo(2)
-  let mut john = fibo(45)
+  let mut john = 32 + 32 + something()
 
   fn foo(n: Int): Unit
     pass
