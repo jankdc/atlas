@@ -1,6 +1,6 @@
 static something: Int = 32
 
-fn main(): Int
+fn main(): Unit
 
   let name = foo(2)
   let mut john = 32 + 32 + something()
@@ -9,6 +9,8 @@ fn main(): Int
     pass
 
   something + fibo(john, 32)
+
+  pass
 
 
 fn something(): Int
