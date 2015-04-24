@@ -2,6 +2,7 @@ package atlas
 
 import atlas.ast.Node
 import atlas.types.Type
+import scala.collection.mutable
 
 object CodeGen {
   def genLLVM(n: Node)
@@ -62,16 +63,26 @@ object CodeGen {
     Seq()
 
   private def gen(n: ast.Let, id: Int)
-   (implicit m: NodeMap): Seq[String] =
+   (implicit m: NodeMap): Seq[String] = {
     Seq()
+   }
 
   private def gen(n: ast.Mut, id: Int)
    (implicit m: NodeMap): Seq[String] =
     Seq()
 
   private def gen(n: ast.Fun, id: Int)
-   (implicit m: NodeMap): Seq[String] =
-    Seq() ++ n.body.map(gen(_, id)).flatten
+   (implicit m: NodeMap): Seq[String] = {
+    val Some(Symbol(sc0, nm0, _)) = m.get(n).sym
+    val tp = m.get(n.ret).typeid.toLLVMType
+    val ag = n.params.map(m.get(_)).map(_.typeid.toLLVMType)
+    val ns = n.params.map("%" + _.name)
+    val ps = (ag, ns).zipped.toList.map(_.productIterator.toList.mkString(" "))
+    val res = ps.mkString(", ")
+    val beg = s"define internal $tp @_$sc0$nm0($res) {"
+    val end = "}"
+    Seq(beg) ++ Seq(end)
+   }
 
   private def gen(n: ast.Top, id: Int)
    (implicit m: NodeMap): Seq[String] = {
@@ -99,16 +110,25 @@ object CodeGen {
     // NOTE: When we're implementing a multi-file compiler,
     // this should be in another module to check if exactly only one
     // main function exists in the files.
-    val noMainAvailable = n.nodes.exists {
-      case ast.Fun("main", _, _, _) => true
+    val mainAvailable = n.nodes.exists {
+      case ast.Fun("main", Seq(), _, _) => true
       case _ => false
     }
 
-    if (noMainAvailable) {
-      throw CodeGenError(": main function could not be found.")
+    if (! mainAvailable) {
+      throw CodeGenError(": No appropriate main function could be found.")
     }
 
-    Seq(targetLayout, targetTriple) ++ n.nodes.map(gen(_, id)).flatten
+
+    val mainEntry = mutable.Buffer[String]()
+    mainEntry += "define i64 @main() {"
+    mainEntry += "top:"
+    mainEntry += "  call void @_main()"
+    mainEntry += "  ret i64 0"
+    mainEntry += "}"
+
+    Seq(targetLayout, targetTriple) ++ n.nodes.map(gen(_, id)).flatten ++
+      mainEntry.toSeq
   }
 
   private def gen(n: ast.Nop, id: Int)
