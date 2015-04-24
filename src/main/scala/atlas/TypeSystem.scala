@@ -75,13 +75,17 @@ object TypeSystem {
 
     val bt = ts.last
     val rt = toType(n.ret)
+    val t1 = types.Var("Unit")
+    val sm = Symbol(s, n.name)(n.pos, true, true)
+    val e4 = e3.copy(archive = e3.archive.add(n.ret, NodeMeta(rt, None)))
+    val e5 = e4.copy(archive = e4.archive.add(n, NodeMeta(t1, Some(sm))))
 
     if (bt != rt) {
       println(ts)
       throw TypeError(s"${n.body.last.pos}: Expected $rt but found $bt")
     }
 
-    (e3.copy(context = e.context), types.Var("Unit"))
+    (e5.copy(context = e.context), types.Var("Unit"))
   }
 
   private def check(e: Env, s: String, n: ast.Top): (Env, Type) = {
@@ -184,7 +188,7 @@ object TypeSystem {
       val t = toType(tn)
       val b = Symbol(s, nm)(n.pos, false, true)
       val c = e.context.addDef(b, t)
-      e.copy(context = c)
+      e.copy(e.archive.add(n, NodeMeta(t, Some(b))), c)
     case ast.Static(nm, tn, _) =>
       val t = toType(tn)
       val b = Symbol(s, nm)(n.pos, true, true)
