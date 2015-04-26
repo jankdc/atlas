@@ -5,11 +5,14 @@ import atlas.types.Type
 
 object TypeSystem {
   case class Env(archive: NodeMap, context: Context)
+  case class Scope(name: String = "", level: Int = 0)
 
-  def collectTypes(c: Context, n: Node): NodeMap =
-    check(Env(NodeMap(Map()), c), "", n) match { case (e, _) => e.archive }
+  def collectTypes(c: Context, n: Node): NodeMap = {
+    val env = Env(NodeMap(Map()), c)
+    check(env, Scope(), n) match { case (e, _) => e.archive }
+  }
 
-  private def check(e: Env, s: String, n: Node): (Env, Type) = n match {
+  private def check(e: Env, s: Scope, n: Node): (Env, Type) = n match {
     case n: ast.Integer => check(e, s, n)
     case n: ast.Boolean => check(e, s, n)
     case n: ast.NamedId => check(e, s, n)
@@ -25,69 +28,73 @@ object TypeSystem {
     case others         => ???
   }
 
-  private def check(e: Env, s: String, n: ast.Integer): (Env, Type) = {
+  private def check(e: Env, s: Scope, n: ast.Integer): (Env, Type) = {
     val t = types.Var("Int")
     val v = NodeMeta(t, None)
     (e.copy(archive = e.archive.add(n, v)), t)
   }
 
-  private def check(e: Env, s: String, n: ast.Boolean): (Env, Type) = {
+  private def check(e: Env, s: Scope, n: ast.Boolean): (Env, Type) = {
     val t = types.Var("Boolean")
     val v = NodeMeta(t, None)
     (e.copy(archive = e.archive.add(n, v)), t)
   }
 
-  private def check(e: Env, s: String, n: ast.NamedId): (Env, Type) = {
+  private def check(e: Env, s: Scope, n: ast.NamedId): (Env, Type) = {
     val (sym, t) = e.context.getDef(n.name, n.pos)
     val v = NodeMeta(t, Some(sym))
     (e.copy(archive = e.archive.add(n, v)), t)
   }
 
-  private def check(e: Env, s: String, n: ast.Let): (Env, Type) = {
-    val sn = s + n.name + "_"
-    val sm = Symbol(s, n.name)(n.pos, false, true)
-    val (e1, t) = check(e, sn, n.value)
+  private def check(e: Env, s: Scope, n: ast.Let): (Env, Type) = {
+    val sn = s.name + n.name + "_"
+    val sm = Symbol(s.name, n.name)(n.pos, false, true, s.level)
+    val (e1, t) = check(e, s.copy(name = sn), n.value)
     val c = e1.context.addDef(sm, t)
     val v = NodeMeta(t, Some(sm))
 
     ((Env(e1.archive.add(n, v), c)), types.Var("Unit"))
   }
 
-  private def check(e: Env, s: String, n: ast.Mut): (Env, Type) = {
-    val sn = s + n.name + "_"
-    val sm = Symbol(s, n.name)(n.pos, false, false)
-    val (e1, t) = check(e, sn, n.value)
+  private def check(e: Env, s: Scope, n: ast.Mut): (Env, Type) = {
+    val sn = s.name + n.name + "_"
+    val sm = Symbol(s.name, n.name)(n.pos, false, false, s.level)
+    val (e1, t) = check(e, s.copy(name = sn), n.value)
     val c = e1.context.addDef(sm, t)
     val v = NodeMeta(t, Some(sm))
 
     ((Env(e1.archive.add(n, v), c)), types.Var("Unit"))
   }
 
-  private def check(e: Env, s: String, n: ast.Fun): (Env, Type) = {
-    val s1 = s + n.name + "_"
-    val e1 = n.params.foldLeft(e) { case (e, n) => collect(e, s1, n) }
-    val e2 = n.body.foldLeft(e1)  { case (e, n) => collect(e, s1, n) }
-
+  private def check(e: Env, s: Scope, n: ast.Fun): (Env, Type) = {
+    val s1 = s.name + n.name + "_"
+    val e1 = n.params.foldLeft(e) {
+      case (e, n) => collect(e, Scope(s1, s.level + 1), n)
+    }
+    val e2 = n.body.foldLeft(e1)  {
+      case (e, n) => collect(e, Scope(s1, s.level + 1), n)
+    }
     val (e3, ts) = n.body.foldLeft(e2, Seq[Type]()) {
       case ((e, ts), n) =>
-        check(e, s1, n) match { case (e4, t) => (e4, ts :+ t) }
+        check(e, Scope(s1, s.level + 1), n) match {
+          case (e4, t) => (e4, ts :+ t)
+        }
     }
 
     val bt = ts.last
     val rt = toType(n.ret)
     val t1 = types.Var("Unit")
-    val sm = Symbol(s, n.name)(n.pos, true, true)
+    val sm = Symbol(s.name, n.name)(n.pos, true, true, s.level)
     val e4 = e3.copy(archive = e3.archive.add(n.ret, NodeMeta(rt, None)))
 
     if (bt != rt) {
-      println(ts)
       throw TypeError(s"${n.body.last.pos}: Expected $rt but found $bt")
     }
 
     (e4.copy(context = e.context), types.Var("Unit"))
   }
 
-  private def check(e: Env, s: String, n: ast.Top): (Env, Type) = {
+  private def check(e: Env, s: Scope, n: ast.Top): (Env, Type) = {
     val t1 = types.Var("Unit")
     val e1 = collect(e, s, n)
 
@@ -103,13 +110,13 @@ object TypeSystem {
     (e2.copy(archive = e2.archive.add(n, v)), t1)
   }
 
-  private def check(e: Env, s: String, n: ast.Nop): (Env, Type) = {
+  private def check(e: Env, s: Scope, n: ast.Nop): (Env, Type) = {
     val t = types.Var("Unit")
     val v = NodeMeta(t, None)
     (e.copy(archive = e.archive.add(n, v)), t)
   }
 
-  private def check(e: Env, s: String, n: ast.App): (Env, Type) = {
+  private def check(e: Env, s: Scope, n: ast.App): (Env, Type) = {
     val (e3, t1) = n.args.foldLeft(e, Seq[Type]()) {
       case ((e1, ts), n) =>
         check(e1, s, n) match { case (e2, t) => (e2, ts :+ t) }
@@ -120,7 +127,7 @@ object TypeSystem {
     (e3.copy(archive = e3.archive.add(n, v)), t2)
   }
 
-  private def check(e: Env, s: String, n: ast.BinOp): (Env, Type) = {
+  private def check(e: Env, s: Scope, n: ast.BinOp): (Env, Type) = {
     val (e1, lhs) = check(e , s, n.lhs)
     val (e2, rhs) = check(e1, s, n.rhs)
 
@@ -145,7 +152,7 @@ object TypeSystem {
     ((e2.copy(archive = e2.archive.add(n, v))), t)
   }
 
-  private def check(e: Env, s: String, n: ast.UnaOp): (Env, Type) = {
+  private def check(e: Env, s: Scope, n: ast.UnaOp): (Env, Type) = {
     val (e1, rhs) = check(e, s, n.rhs)
     val t = n.op match {
       case "-" =>
@@ -160,11 +167,11 @@ object TypeSystem {
     ((e1.copy(archive = e1.archive.add(n, v))), t)
   }
 
-  private def check(e: Env, s: String, n: ast.Static): (Env, Type) = {
+  private def check(e: Env, s: Scope, n: ast.Static): (Env, Type) = {
     val t1 = types.Var("Unit")
-    val s1 = s + n.name + "_"
+    val s1 = s.name + n.name + "_"
     val (sm, t2) = e.context.getDef(n.name, n.pos)
-    val (e1, t3) = check(e, s1, n.value)
+    val (e1, t3) = check(e, s.copy(name = s1), n.value)
 
     if (t2 != t3)
       throw TypeError(s"${n.pos}: Expected $t2 but found $t3")
@@ -173,24 +180,24 @@ object TypeSystem {
     ((e1.copy(archive = e1.archive.add(n, v))), t1)
   }
 
-  private def collect(e: Env, s: String, n: Node): Env = n match {
+  private def collect(e: Env, s: Scope, n: Node): Env = n match {
     case ast.Top(ns) =>
       ns.foldLeft(e) { case (e, n) => collect(e, s, n) }
     case ast.Fun(nm, ps, rt, _) =>
       val p = ps.map(p => toType(p.typename))
       val r = toType(rt)
       val a = "(" + p.mkString(", ") + ")"
-      val b = Symbol(s, nm, a)(n.pos, true, true)
+      val b = Symbol(s.name, nm, a)(n.pos, true, true, s.level)
       val c = e.context.addDef(b, r)
       e.copy(e.archive.add(n, NodeMeta(types.Var("Unit"), Some(b))), c)
     case ast.Param(nm, tn) =>
       val t = toType(tn)
-      val b = Symbol(s, nm)(n.pos, false, true)
+      val b = Symbol(s.name, nm)(n.pos, false, true, s.level)
       val c = e.context.addDef(b, t)
       e.copy(e.archive.add(n, NodeMeta(t, Some(b))), c)
     case ast.Static(nm, tn, _) =>
       val t = toType(tn)
-      val b = Symbol(s, nm)(n.pos, true, true)
+      val b = Symbol(s.name, nm)(n.pos, true, true, s.level)
       val c = e.context.addDef(b, t)
       e.copy(context = c)
     case other =>
