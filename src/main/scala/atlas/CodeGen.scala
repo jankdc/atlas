@@ -166,8 +166,6 @@ object CodeGen {
         (ss ++ g.map("  " ++ _), newId)
     }
 
-    println("RHSGEN:", id001, rhsGen.toString)
-
     val retRes = tp match {
       case "void" => s"$tp"
       case _ => s"$tp %$id002"
