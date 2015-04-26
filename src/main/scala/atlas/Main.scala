@@ -7,8 +7,11 @@ import atlas.PartialEvaluator.partEval
 import atlas.CodeGen.genLLVM
 import atlas.tokens.Token
 import scala.io.Source
+import scalax.io._
 
 object Main extends App {
+  implicit val codec = Codec.UTF8
+
   try {
     val path = "/atom.atlas"
     val source = Source.fromURL(getClass.getResource(path)).mkString
@@ -28,8 +31,12 @@ object Main extends App {
     val nodeMap = collectTypes(context, petree)
 
     val genCode = genLLVM(petree)(nodeMap)
+    val genString = genCode.mkString("\n")
     println("LLVM IR:")
-    println(genCode.mkString("\n"))
+    println(genString)
+
+    val output = Resource.fromFile("bin/main.ll")
+    output.write(genString)
   }
   catch {
     case err: ParserError =>
