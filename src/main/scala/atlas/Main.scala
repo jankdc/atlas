@@ -7,11 +7,10 @@ import atlas.PartialEvaluator.partEval
 import atlas.CodeGen.genLLVM
 import atlas.tokens.Token
 import scala.io.Source
-import scalax.io._
+import scala.sys.process._
+import java.io.{File, FileWriter, BufferedWriter}
 
 object Main extends App {
-  implicit val codec = Codec.UTF8
-
   try {
     val path = "/atom.atlas"
     val source = Source.fromURL(getClass.getResource(path)).mkString
@@ -35,8 +34,16 @@ object Main extends App {
     println("LLVM IR:")
     println(genString)
 
-    val output = Resource.fromFile("bin/main.ll")
+    val outputFile = new File("bin/main.ll")
+    val output = new BufferedWriter(new FileWriter(outputFile))
     output.write(genString)
+    output.close()
+
+    println("LLVM Output: ")
+    ("llc -filetype=obj bin/main.ll -o bin/main.o" #&&
+     buildLinkerCommand() #&&
+     "./bin/main"
+    ).!
   }
   catch {
     case err: ParserError =>
@@ -45,6 +52,13 @@ object Main extends App {
       println(s"[error]${err.getMessage}")
     case err: CodeGenError =>
       println(s"[error]${err.getMessage}")
+  }
+
+  private def buildLinkerCommand(): String = {
+    val arch = System.getProperty("os.arch")
+    val osVer = System.getProperty("os.version")
+    val osxCmdOpt = s"macosx_version_min $osVer"
+    s"ld -arch $arch -$osxCmdOpt -o bin/main bin/main.o -lSystem"
   }
 
   private def toString(t: Token): String = t match {
