@@ -27,7 +27,8 @@ object Main extends App {
 
     val prelude = Set("Unit", "Int", "Boolean")
     val builtin = Map(
-      Symbol("", "println")(LinePos(1, 1), true, true, 1) -> types.Var("Unit"))
+      Symbol("", "println", "(Int)")(LinePos(1, 1), true, true, 1)
+        -> types.Var("Unit"))
     val context = Context(prelude, builtin)
     val nodeMap = collectTypes(context, petree)
 
