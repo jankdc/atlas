@@ -1,17 +1,7 @@
 static something: Int = 32
 
 fn main(): Unit
-
-  let name = foo(2)
-  let mut john = 32 + 32 + something()
-
-  fn foo(n: Int): Unit
-    pass
-
-  something + fibo(john, 32)
-
-  pass
-
+  let john = 32 + 32
 
 fn something(): Int
   static something_else: Int = 32 + 323
@@ -23,9 +13,9 @@ fn fibo(n: Int): Int
   n
 
 fn fibo(m: Int, h: Int): Int
-  1234
+  let variable = 1234
   m
-  h
+  h + variable
 
 fn isSame(n: Int, m: Int): Boolean
-  n == m
+  n == m + n
