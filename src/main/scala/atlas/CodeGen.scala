@@ -5,52 +5,63 @@ import atlas.types.Type
 import scala.collection.mutable
 
 object CodeGen {
-  def genLLVM(n: Node)
-   (implicit m: NodeMap): Seq[String] = gen(n, 1)
+  type Store = Map[String, Int]
+  case class Env(id: Int, store: Store)
 
-  private def gen(n: Node, id: Int)
-   (implicit m: NodeMap): Seq[String] = n match {
-    case n: ast.Integer => gen(n, id)
-    case n: ast.Boolean => gen(n, id)
-    case n: ast.NamedId => gen(n, id)
-    case n: ast.Let     => gen(n, id)
-    case n: ast.Mut     => gen(n, id)
-    case n: ast.Fun     => gen(n, id)
-    case n: ast.Top     => gen(n, id)
-    case n: ast.App     => gen(n, id)
-    case n: ast.Static  => gen(n, id)
-    case n: ast.BinOp   => gen(n, id)
-    case n: ast.UnaOp   => gen(n, id)
-    case n: ast.Nop     => gen(n, id)
+  def genLLVM(n: Node)
+   (implicit m: NodeMap): Seq[String] =
+    gen(n, Env(1, Map())) match { case (s, _) => s }
+
+  private def gen(n: Node, e: Env)
+   (implicit m: NodeMap): (Seq[String], Int) = n match {
+    case n: ast.Integer => gen(n, e)
+    case n: ast.Boolean => gen(n, e)
+    case n: ast.NamedId => gen(n, e)
+    case n: ast.Let     => gen(n, e)
+    case n: ast.Mut     => gen(n, e)
+    case n: ast.Fun     => gen(n, e)
+    case n: ast.Top     => gen(n, e)
+    case n: ast.App     => gen(n, e)
+    case n: ast.Static  => gen(n, e)
+    case n: ast.BinOp   => gen(n, e)
+    case n: ast.UnaOp   => gen(n, e)
+    case n: ast.Nop     => gen(n, e)
     case others         => ???
   }
 
-  private def gen(n: ast.Integer, id: Int)
-   (implicit m: NodeMap): Seq[String] = {
+  private def gen(n: ast.Integer, e: Env)
+   (implicit m: NodeMap): (Seq[String], Int) = {
+    val id = e.id
     val alloc = s"%$id = alloca i32, align 4"
     val store = s"store i32 ${n.value}, i32* %$id"
-    val id1 = id + 1
-    val load = s"%$id1 = load i32* %id, align 4"
-    Seq(alloc, store, load)
+    val id001 = id + 1
+    val load = s"%$id001 = load i32* %$id, align 4"
+    (Seq(alloc, store, load), id001)
   }
 
-  private def gen(n: ast.Boolean, id: Int)
-   (implicit m: NodeMap): Seq[String] = {
+  private def gen(n: ast.Boolean, e: Env)
+   (implicit m: NodeMap): (Seq[String], Int) = {
+    val id = e.id
     val alloc = s"%$id = alloca i1, align 4"
     val store = s"store i1 ${n.value}, i1* %$id"
-    val id1 = id + 1
-    val load = s"%$id1 = load i32* %id, align 4"
-    Seq(alloc, store, load)
+    val id001 = id + 1
+    val load = s"%$id001 = load i32* %$id, align 4"
+    (Seq(alloc, store, load), id001)
   }
 
-  private def gen(n: ast.NamedId, id: Int)
-   (implicit m: NodeMap): Seq[String] =
-    Seq()
+  private def gen(n: ast.NamedId, e: Env)
+   (implicit m: NodeMap): (Seq[String], Int) = {
+    val tp = m.get(n).typeid.toLLVMTypeAlloc
+    val id = e.id
+    val nm = e.store.get(n.name) getOrElse n.name
+    (Seq(s"%$id = load $tp* %$nm"), id)
+   }
 
-  private def gen(n: ast.Static, id: Int)
-   (implicit m: NodeMap): Seq[String] = {
+  private def gen(n: ast.Static, e: Env)
+   (implicit m: NodeMap): (Seq[String], Int) = {
     val Some(Symbol(sc0, nm0, _)) = m.get(n).sym
     val tp = m.get(n.value).typeid.toLLVMType
+    val id = e.id
 
     val data = n.value match {
       case ast.Integer(n) => n
@@ -60,32 +71,54 @@ object CodeGen {
         throw CodeGenError(msg)
     }
 
-    Seq(s"@$sc0$nm0 = internal constant $tp $data")
+    (Seq(s"@$sc0$nm0 = internal constant $tp $data"), id - 1)
   }
 
-  private def gen(n: ast.BinOp, id: Int)
-   (implicit m: NodeMap): Seq[String] =
-    Seq()
+  private def gen(n: ast.BinOp, e: Env)
+   (implicit m: NodeMap): (Seq[String], Int) = {
+    val tp = m.get(n.lhs).typeid.toLLVMTypeAlloc
 
-  private def gen(n: ast.UnaOp, id: Int)
-   (implicit m: NodeMap): Seq[String] =
-    Seq()
+    val (lhs, id001) = gen(n.lhs, e)
+    val (rhs, id002) = gen(n.rhs, e.copy(id = id001 + 1))
 
-  private def gen(n: ast.Let, id: Int)
-   (implicit m: NodeMap): Seq[String] = {
+    val binOp = n.op match {
+      case "==" => s"icmp eq $tp %${id002 - 1}, %${id002}"
+      case "+" => s"add nsw $tp %${id002 - 1}, %${id002}"
+      case "-" => s"sub nsw $tp %${id002 - 1}, %${id002}"
+      case "*" => s"mul nsw $tp %${id002 - 1}, %${id002}"
+      case "/" => s"sdiv $tp %${id002 - 1}, %${id002}"
+      case _ => ???
+    }
+
+    val id003 = id002 + 1
+
+    (lhs ++ rhs ++ Seq(s"%${id003} = $binOp"), id003)
+  }
+
+
+  private def gen(n: ast.UnaOp, e: Env)
+   (implicit m: NodeMap): (Seq[String], Int) =
+    (Seq(), e.id - 1)
+
+  private def gen(n: ast.Let, e: Env)
+   (implicit m: NodeMap): (Seq[String], Int) = {
     val tp = m.get(n.value).typeid.toLLVMTypeAlloc
+    val id = e.id
     val alloc = s"%${n.name} = alloca $tp"
-    Seq(alloc)
+    val (value, id001) = gen(n.value, e)
+    val store = s"store $tp %$id001, $tp* %${n.name}"
+    (value ++ Seq(alloc, store), id001)
    }
 
-  private def gen(n: ast.Mut, id: Int)
-   (implicit m: NodeMap): Seq[String] =
-    Seq()
+  private def gen(n: ast.Mut, e: Env)
+   (implicit m: NodeMap): (Seq[String], Int) =
+    (Seq(), e.id - 1)
 
-  private def gen(n: ast.Fun, id: Int)
-   (implicit m: NodeMap): Seq[String] = {
+  private def gen(n: ast.Fun, e: Env)
+   (implicit m: NodeMap): (Seq[String], Int) = {
     val Some(Symbol(sc0, nm0, ts0)) = m.get(n).sym
     val hashedTs0 = ts0.hashCode
+    val id = e.id
     val tp = m.get(n.ret).typeid.toLLVMType
     val ag = n.params.map(m.get(_)).map(_.typeid.toLLVMType)
     val ns = n.params.map("%" + _.name)
@@ -93,24 +126,63 @@ object CodeGen {
     val res = ps.mkString(", ")
     val beg = s"define internal $tp @_$sc0$nm0$hashedTs0($res) {"
     val end = "}"
+
     val (lhs, rhs) = n.body.partition {
       case n: ast.Fun => true
       case n: ast.Static => true
       case _ => false
     }
-    val lhsGen = lhs.map(gen(_, id)).flatten
-    val rhsGen = rhs.map(gen(_, id)).flatten.map("  " ++ _)
 
-    if (tp == "void") {
-      return lhsGen ++ Seq(beg) ++ rhsGen ++ Seq(s"  ret void") ++ Seq(end)
+    val (psAlloc, id001) = n.params.foldLeft(Seq[String](), 1) {
+      case ((ss, id), n@ast.Param(nm, _)) =>
+        val newId = id + 1
+        val lta = m.get(n).typeid.toLLVMTypeAlloc
+        val ins = s"  %$id = alloca $lta"
+        (ss :+ ins, newId)
     }
-    else {
-      lhsGen ++ Seq(beg) ++ rhsGen ++ Seq(s"  ret $tp %$id") ++ Seq(end)
+
+    val psLen: Int = n.params.length
+    val init = id001 - psLen
+    val psIds = (init to psLen).toList
+
+    val psStore = (n.params, psIds).zipped.toList.map {
+      case (n@ast.Param(nm, _), id) =>
+        val lta = m.get(n).typeid.toLLVMTypeAlloc
+        s"  store $lta %$nm, $lta* %$id"
     }
+
+    val psMap = (n.params.map(_.name), psIds).zipped.toMap
+
+    val (lhsGen, _) = lhs.foldLeft(Seq[String](), 0) {
+      case ((ss, id), nn) =>
+        val (g, newId) = gen(nn, e)
+        (ss ++ g, newId)
+    }
+
+
+    val (rhsGen, id002) = rhs.foldLeft(Seq[String](), id001 - 1) {
+      case ((ss, id), nn) =>
+        val (g, newId) = gen(nn, Env(id + 1, psMap))
+        (ss ++ g.map("  " ++ _), newId)
+    }
+
+    println("RHSGEN:", id001, rhsGen.toString)
+
+    val retRes = tp match {
+      case "void" => s"$tp"
+      case _ => s"$tp %$id002"
+    }
+
+    (lhsGen   ++
+     Seq(beg) ++
+     psAlloc  ++
+     psStore  ++
+     rhsGen   ++
+     Seq(s"  ret $retRes", end), id002)
    }
 
-  private def gen(n: ast.Top, id: Int)
-   (implicit m: NodeMap): Seq[String] = {
+  private def gen(n: ast.Top, e: Env)
+   (implicit m: NodeMap): (Seq[String], Int) = {
     lazy val targetLayout = {
       """target datalayout = "E-S128-m:o-n8:16:32:64-f80:128-i64:64" """
     }
@@ -152,17 +224,23 @@ object CodeGen {
     mainEntry += "  ret i64 0"
     mainEntry += "}"
 
-    Seq(targetLayout, targetTriple) ++ n.nodes.map(gen(_, id)).flatten ++
+    val topGens = n.nodes.map(gen(_, e)).map(_._1).flatten
+
+    val genRes =
+      Seq(targetLayout, targetTriple) ++
+      topGens                         ++
       mainEntry.toSeq
+
+    (genRes, e.id)
   }
 
-  private def gen(n: ast.Nop, id: Int)
-   (implicit m: NodeMap): Seq[String] =
-    Seq()
+  private def gen(n: ast.Nop, e: Env)
+   (implicit m: NodeMap): (Seq[String], Int) =
+    (Seq(), e.id - 1)
 
-  private def gen(n: ast.App, id: Int)
-   (implicit m: NodeMap): Seq[String] =
-    Seq()
+  private def gen(n: ast.App, e: Env)
+   (implicit m: NodeMap): (Seq[String], Int) =
+    (Seq(), e.id - 1)
 
   private implicit class LLVMTypeConverter(val t: Type) extends AnyVal {
     def toLLVMType = t match {
@@ -180,4 +258,3 @@ object CodeGen {
     }
   }
 }
-
