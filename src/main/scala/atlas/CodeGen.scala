@@ -226,7 +226,7 @@ object CodeGen {
     val printfDef = """declare i32 @printf(i8*, ...)"""
 
     val printlnInt = mutable.Buffer[String]()
-    printlnInt += s"""define void @println${"(Int)".hashCode}(i32 %n) {"""
+    printlnInt += s"""define void @_println${"(Int)".hashCode}(i32 %n) {"""
     printlnInt += "entry:"
     printlnInt += s"  %0 = call i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([4 x i8]* @.str, i32 0, i32 0), i32 %n)"
     printlnInt += s"  ret void"
@@ -250,8 +250,31 @@ object CodeGen {
     (Seq(), e.id - 1)
 
   private def gen(n: ast.App, e: Env)
-   (implicit m: NodeMap): (Seq[String], Int) =
-    (Seq(), e.id - 1)
+   (implicit m: NodeMap): (Seq[String], Int) = {
+    val NodeMeta(typeId, Some(Symbol(_, nm, ts))) = m.get(n)
+    val tp = typeId.toLLVMType
+    val (ps, dd, id001) = n.args.foldLeft(Seq[String](), Seq[Int](), e.id - 1) {
+      case ((ss, dd, id), arg) =>
+        val (s, newId) = gen(arg, e.copy(id = id + 1))
+        (ss ++ s, dd :+ newId, newId)
+    }
+
+    val argTps = n.args.map(m.get(_).typeid.toLLVMType)
+    val argIns = (argTps, dd)
+     .zipped
+     .toList
+     .map { case (argTp, id) => s"$argTp %$id" }
+     .mkString(", ")
+
+    if (tp == "void") {
+      val call = s"call $tp @_$nm${ts.hashCode}($argIns)"
+      (ps :+ call, id001)
+
+    } else {
+      val call = s"%${id001 + 1} = call $tp @_$nm${ts.hashCode}($argIns)"
+      (ps :+ call, id001 + 1)
+    }
+   }
 
   private implicit class LLVMTypeConverter(val t: Type) extends AnyVal {
     def toLLVMType = t match {
