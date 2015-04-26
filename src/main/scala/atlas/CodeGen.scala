@@ -224,12 +224,25 @@ object CodeGen {
     mainEntry += "  ret i64 0"
     mainEntry += "}"
 
+    val printfInt = """@.str = private unnamed_addr constant [4 x i8] c"%d\0A\00", align 1"""
+    val printfDef = """declare i32 @printf(i8*, ...)"""
+
+    val printlnInt = mutable.Buffer[String]()
+    printlnInt += s"""define void @println${"(Int)".hashCode}(i32 %n) {"""
+    printlnInt += "entry:"
+    printlnInt += s"  %0 = call i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([4 x i8]* @.str, i32 0, i32 0), i32 %n)"
+    printlnInt += s"  ret void"
+    printlnInt += "}"
+
     val topGens = n.nodes.map(gen(_, e)).map(_._1).flatten
 
     val genRes =
       Seq(targetLayout, targetTriple) ++
+      Seq(printfInt)                  ++
       topGens                         ++
-      mainEntry.toSeq
+      mainEntry.toSeq                 ++
+      printlnInt.toSeq                ++
+      Seq(printfDef)
 
     (genRes, e.id)
   }
