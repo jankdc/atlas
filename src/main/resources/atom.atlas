@@ -3,6 +3,7 @@ static something: Int = 32
 fn main(): Unit
   let john = 32 + 32
   println(john)
+  println(something())
 
 fn something(): Int
   static something_else: Int = 32 + 323
