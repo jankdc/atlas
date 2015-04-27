@@ -89,3 +89,20 @@ case class Boolean(value: scala.Boolean)
   (val pos: LinePos) extends Node {
   override def toString = value.toString
 }
+
+case class IfElse(cond: Node, lhs: Seq[Node], rhs: Seq[Node])
+  (val pos: LinePos) extends Node {
+  override def toString = {
+    val lhsStr = lhs.map("  " + _.toString)
+    val rhsStr = rhs.map("  " + _.toString)
+    s"if $cond\n$lhsStr\nelse\n$rhsStr"
+  }
+}
+
+case class IfSimp(cond: Node, then: Seq[Node])
+  (val pos: LinePos) extends Node {
+  override def toString = {
+    val thenStr = then.map("  " + _.toString)
+    s"if $cond\n$thenStr"
+  }
+}
