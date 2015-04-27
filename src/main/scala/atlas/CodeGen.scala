@@ -45,7 +45,7 @@ object CodeGen {
     val alloc = s"%$id = alloca i1, align 4"
     val store = s"store i1 ${n.value}, i1* %$id"
     val id001 = id + 1
-    val load = s"%$id001 = load i32* %$id, align 4"
+    val load = s"%$id001 = load i1* %$id, align 4"
     (Seq(alloc, store, load), id001)
   }
 
@@ -223,6 +223,8 @@ object CodeGen {
     mainEntry += "}"
 
     val printfInt = """@.str = private unnamed_addr constant [4 x i8] c"%d\0A\00", align 1"""
+    val printfBoolT = """@.str-true = private unnamed_addr constant [6 x i8] c"true\0A\00", align 1"""
+    val printfBoolF = """@.str-false = private unnamed_addr constant [7 x i8] c"false\0A\00", align 1"""
     val printfDef = """declare i32 @printf(i8*, ...)"""
 
     val printlnInt = mutable.Buffer[String]()
@@ -232,14 +234,32 @@ object CodeGen {
     printlnInt += s"  ret void"
     printlnInt += "}"
 
+    val printlnBool = mutable.Buffer[String]()
+    printlnBool += s"""define void @_println${"(Boolean)".hashCode}(i1 %n) {"""
+    printlnBool += "entry:"
+    printlnBool += "  br i1 %n, label %print-t, label %print-f"
+    printlnBool += "print-t:"
+    printlnBool += "  %0 = call i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([6 x i8]* @.str-true, i32 0, i32 0))"
+    printlnBool += "  br label %join"
+    printlnBool += ""
+    printlnBool += "print-f:"
+    printlnBool += "  %1 = call i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([7 x i8]* @.str-false, i32 0, i32 0))"
+    printlnBool += "  br label %join"
+    printlnBool += "join:"
+    printlnBool += "  ret void"
+    printlnBool += "}"
+
     val topGens = n.nodes.map(gen(_, e)).map(_._1).flatten
 
     val genRes =
       Seq(targetLayout, targetTriple) ++
-      Seq(printfInt)                  ++
+      Seq(printfInt,
+          printfBoolT,
+          printfBoolF)                ++
       topGens                         ++
       mainEntry.toSeq                 ++
       printlnInt.toSeq                ++
+      printlnBool.toSeq               ++
       Seq(printfDef)
 
     (genRes, e.id)
