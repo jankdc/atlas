@@ -1,11 +1,11 @@
-static something: Int = 32
+static something: Int = 40
 
   # random comment with random spaces on the left
 
 fn main(): Unit
   let john = 32 + 32
   println(john)
-  println(something())
+  println(something)
   println(isSame(2 + 1, 3))
   println(isSame(3, 3))
   println(isSame(false, true))
