@@ -51,10 +51,16 @@ object CodeGen {
 
   private def gen(n: ast.NamedId, e: Env)
    (implicit m: NodeMap): (Seq[String], Int) = {
-    val tp = m.get(n).typeid.toLLVMTypeAlloc
+    val atlas.NodeMeta(typeId, Some(sym)) = m.get(n)
+    val tp = typeId.toLLVMTypeAlloc
     val id = e.id
-    val nm = e.store.get(n.name) getOrElse n.name
-    (Seq(s"%$id = load $tp* %$nm"), id)
+    val nm = {
+      val actual = e.store.get(n.name) getOrElse n.name
+      val prefix = if (sym.isStatic) "@" else "%"
+      prefix + actual
+    }
+
+    (Seq(s"%$id = load $tp* $nm"), id)
    }
 
   private def gen(n: ast.Static, e: Env)
