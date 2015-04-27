@@ -1,9 +1,15 @@
 static something: Int = 32
 
+  # random comment with random spaces on the left
+
 fn main(): Unit
   let john = 32 + 32
   println(john)
   println(something())
+  println(isSame(2 + 1, 3))
+  println(isSame(3, 3))
+  println(isSame(false, true))
+  # println(isSame(true, true))
 
 fn something(): Int
   static something_else: Int = 32 + 323
@@ -19,4 +25,7 @@ fn fibo(m: Int, h: Int): Int
   h + variable
 
 fn isSame(n: Int, m: Int): Boolean
+  n == m
+
+fn isSame(n: Boolean, m: Boolean): Boolean
   n == m

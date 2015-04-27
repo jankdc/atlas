@@ -46,8 +46,10 @@ object Parser {
   private def parseStmt(ts: Seq[Token]): Result = {
     val exprStmt = seq(parseExpr, one("NewLine"))
     val callStmt = seq(parseApp, one("NewLine"))
+    val newlStmt = one("NewLine")
     val passStmt = seq(key("pass"), one("NewLine"))
     val parser = any("a statement",
+      newlStmt,
       exprStmt,
       callStmt,
       passStmt,

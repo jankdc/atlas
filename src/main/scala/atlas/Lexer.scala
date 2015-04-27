@@ -25,11 +25,10 @@ object Lexer {
       source = source.substring(token.raw.length)
     }
 
-    buffer += tokens.EOF()(pos)
     buffer.toSeq
           .mkIndent
           .filterNot(_.isInstanceOf[tokens.WhiteSp])
-          .filterNot(_.isInstanceOf[tokens.Comment])
+          .filterNot(_.isInstanceOf[tokens.Comment]) :+ tokens.EOF()(pos)
   }
 
   private def findLongest(s: String, p: LinePos): Token =
@@ -145,7 +144,7 @@ object Lexer {
     buffer.mkString("|").r
   }
 
-  private lazy val comment = "(#.*\\n)|(#.*\\r\\n)".r
+  private lazy val comment = "( *#.*\\n)|( *#.*\\r\\n)".r
   private lazy val integer = "(0)|([1-9][0-9]*)".r
   private lazy val newline = "(\\n)|(\\r\\n)".r
   private lazy val namedId = "[a-zA-Z]\\w*".r
