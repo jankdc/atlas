@@ -83,6 +83,7 @@ object CodeGen {
 
     val binOp = n.op match {
       case "==" => s"icmp eq $tp %${id002 - 1}, %${id002}"
+      case "!=" => s"icmp ne $tp %${id002 - 1}, %${id002}"
       case "+" => s"add nsw $tp %${id002 - 1}, %${id002}"
       case "-" => s"sub nsw $tp %${id002 - 1}, %${id002}"
       case "*" => s"mul nsw $tp %${id002 - 1}, %${id002}"
