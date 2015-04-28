@@ -32,7 +32,7 @@ case class App(name: String, args: Seq[Node])
 case class Fun(name: String, params: Seq[Param], ret: Type, body: Seq[Node])
   (val pos: LinePos) extends Node {
   override def toString = {
-    val indent = "\n" + (" " * (2 + pos.col))
+    val indent = "\n" + (" " * (1 + pos.col))
     val bdNodes = body.mkString(indent)
     val psNodes = params.mkString(", ")
 
@@ -90,19 +90,30 @@ case class Boolean(value: scala.Boolean)
   override def toString = value.toString
 }
 
-case class IfElse(cond: Node, lhs: Seq[Node], rhs: Seq[Node])
+case class Cond(cond: Node, body: Seq[Node], others: Seq[Node])
   (val pos: LinePos) extends Node {
   override def toString = {
-    val lhsStr = lhs.map("  " + _.toString)
-    val rhsStr = rhs.map("  " + _.toString)
-    s"if $cond\n$lhsStr\nelse\n$rhsStr"
+    val dent = "\n" + (" " * (1 + pos.col))
+    val str1 = body.mkString(dent)
+    val str2 = others.mkString("\n")
+    s"if $cond$dent$str1\n$str2"
   }
 }
 
-case class IfSimp(cond: Node, then: Seq[Node])
+case class Elif(cond: Node, body: Seq[Node])
   (val pos: LinePos) extends Node {
   override def toString = {
-    val thenStr = then.map("  " + _.toString)
-    s"if $cond\n$thenStr"
+    val dent = "\n" + (" " * (1 + pos.col))
+    val str1 = body.mkString(dent)
+    (" " * (pos.col - 1)) + s"elif $cond$dent$str1"
+  }
+}
+
+case class Else(body: Seq[Node])
+  (val pos: LinePos) extends Node {
+  override def toString = {
+    val dent = "\n" + (" " * (1 + pos.col))
+    val str1 = body.mkString(dent)
+    (" " * (pos.col - 1)) + s"else$dent$str1"
   }
 }

@@ -56,7 +56,8 @@ object Parser {
       parseLet,
       parseMut,
       parseStatic,
-      parseFun)
+      parseFun,
+      parseCond)
 
     parser(ts)
   }
@@ -75,6 +76,36 @@ object Parser {
     val parser = seq(simple, others)
     val (types, rs) = parser(ts)
     (Seq(ast.Type(types)(ts.head.pos)), rs)
+  }
+
+  private def parseCond(ts: Seq[Token]): Result = {
+    val block = dlist(parseStmt)
+    val break = one("NewLine")
+    val ifStmt = seq(key("if"), parseExpr, break, block)
+    val elifStmt = rep(parseElif)
+    val elseStmt = eat(parseElse)
+
+    val (Seq(cond, ast.List(body)), ts0) = ifStmt(ts)
+    val (elifNodes, ts1) = elifStmt(ts0)
+    val (elseNodes, ts2) = elseStmt(ts1)
+
+    (Seq(ast.Cond(cond, body, elifNodes ++ elseNodes)(ts.head.pos)), ts2)
+  }
+
+  private def parseElif(ts: Seq[Token]): Result = {
+    val block = dlist(parseStmt)
+    val break = one("NewLine")
+    val parser = seq(key("elif"), parseExpr, break, block)
+    val (Seq(cond, ast.List(body)), rs) = parser(ts)
+    (Seq(ast.Elif(cond, body)(ts.head.pos)), rs)
+  }
+
+  private def parseElse(ts: Seq[Token]): Result = {
+    val block = dlist(parseStmt)
+    val break = one("NewLine")
+    val parser = seq(key("else"), break, block)
+    val (Seq(ast.List(body)), rs) = parser(ts)
+    (Seq(ast.Else(body)(ts.head.pos)), rs)
   }
 
   private def parseStatic(ts: Seq[Token]): Result = {
