@@ -13,6 +13,18 @@ object PartialEvaluator {
     case n: ast.Top     => n.copy(n.nodes.map(partEval))(n.pos)
     case n: ast.App     => n.copy(args = n.args.map(partEval))(n.pos)
     case n: ast.Static  => n.copy(value = partEval(n.value))(n.pos)
+    case n: ast.Cond    => ast.Cond(
+        partEval(n.cond),
+        n.body.map(partEval),
+        n.others.map(partEval)
+      )(n.pos)
+    case n: ast.Elif    => ast.Elif(
+        partEval(n.cond),
+        n.body.map(partEval)
+      )(n.pos)
+    case n: ast.Else    => ast.Else(
+        n.body.map(partEval)
+      )(n.pos)
     case n: ast.BinOp   =>
       val lhs = partEval(n.lhs)
       val rhs = partEval(n.rhs)
