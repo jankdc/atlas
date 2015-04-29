@@ -9,6 +9,7 @@ fn main(): Unit
   println(isSame(2 + 1, 3))
   println(isSame(3, 3))
   println(isSame(false, true))
+  print5iftrue(false)
   # println(isSame(true, true))
 
 fn something(): Int
@@ -17,8 +18,24 @@ fn something(): Int
 
   23
 
+fn print5iftrue(b: Boolean): Unit
+  if b
+    println(5)
+  elif b == false
+    println(4)
+    let something_else = 32
+    if something_else == 32
+      println(10010101)
+    else
+      println(323232)
+  else
+    println(0)
+
 fn fibo(n: Int): Int
-  n
+  if 32 == n
+    n
+  else
+    5
 
 fn fibo(m: Int, h: Int): Int
   let variable = 1234
