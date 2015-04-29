@@ -26,9 +26,9 @@ object Lexer {
     }
 
     buffer.toSeq
+          .filterNot(_.isInstanceOf[tokens.Comment])
           .mkIndent
-          .filterNot(_.isInstanceOf[tokens.WhiteSp])
-          .filterNot(_.isInstanceOf[tokens.Comment]) :+ tokens.EOF()(pos)
+          .filterNot(_.isInstanceOf[tokens.WhiteSp]) :+ tokens.EOF()(pos)
   }
 
   private def findLongest(s: String, p: LinePos): Token =
