@@ -25,6 +25,9 @@ object TypeSystem {
     case n: ast.BinOp   => check(e, s, n)
     case n: ast.UnaOp   => check(e, s, n)
     case n: ast.Nop     => check(e, s, n)
+    case n: ast.Cond    => check(e, s, n)
+    case n: ast.Elif    => check(e, s, n)
+    case n: ast.Else    => check(e, s, n)
     case others         => ???
   }
 
@@ -180,6 +183,81 @@ object TypeSystem {
     ((e1.copy(archive = e1.archive.add(n, v))), t1)
   }
 
+  private def check(e: Env, s: Scope, n: ast.Cond): (Env, Type) = {
+    val newScope = s.copy(level = s.level + 1)
+    val cetype = types.Var("Boolean")
+    val (e1, catype) = check(e, s, n.cond)
+
+    if (catype != cetype)
+      throw TypeError(s"${n.cond.pos}: Expected $cetype but found $catype")
+
+    val e2 = n.body.foldLeft(e1) { case (e, n) => collect(e, newScope, n) }
+
+    val (e3, bodyTypes) = n.body.foldLeft(e2, Seq[Type]()) {
+      case ((e, ts), n) =>
+        val (newEnv, t) = check(e, newScope, n)
+        (newEnv, ts :+ t)
+    }
+
+    val t = bodyTypes.last
+
+    val (e4, otherTypes) = n.others.foldLeft(
+      e3.copy(context = e.context), Seq[Type]()) {
+      case ((e, ts), n) =>
+        val (newEnv, t) = check(e, s, n)
+        (newEnv, ts :+ t)
+    }
+
+    val isSameTypes = otherTypes.forall(_ == t)
+    val hasElseStmt = n.others.exists(_.isInstanceOf[ast.Else])
+
+    if (isSameTypes && otherTypes.nonEmpty && hasElseStmt) {
+      val v = NodeMeta(t, None)
+      (Env(e4.archive.add(n, v), e.context), t)
+    }
+    else {
+      val v = NodeMeta(types.Var("Unit"), None)
+      (Env(e4.archive.add(n, v), e.context), types.Var("Unit"))
+    }
+  }
+
+  private def check(e: Env, s: Scope, n: ast.Else): (Env, Type) = {
+    val newScope = s.copy(level = s.level + 1)
+    val e1 = n.body.foldLeft(e) { case (e, n) => collect(e, newScope, n) }
+    val (e2, bodyTypes) = n.body.foldLeft(e1, Seq[Type]()) {
+      case ((e, ts), n) =>
+        val (newEnv, t) = check(e, newScope, n)
+        (newEnv, ts :+ t)
+    }
+
+    val t = bodyTypes.last
+    val v = NodeMeta(t, None)
+
+    (Env(e2.archive.add(n, v), e.context), t)
+  }
+
+  private def check(e: Env, s: Scope, n: ast.Elif): (Env, Type) = {
+    val newScope = s.copy(level = s.level + 1)
+    val cetype = types.Var("Boolean")
+    val (e1, catype) = check(e, s, n.cond)
+
+    if (catype != cetype)
+      throw TypeError(s"${n.cond.pos}: Expected $cetype but found $catype")
+
+    val e2 = n.body.foldLeft(e1) { case (e, n) => collect(e, newScope, n) }
+
+    val (e3, bodyTypes) = n.body.foldLeft(e2, Seq[Type]()) {
+      case ((e, ts), n) =>
+        val (newEnv, t) = check(e, newScope, n)
+        (newEnv, ts :+ t)
+    }
+
+    val t = bodyTypes.last
+    val v = NodeMeta(t, None)
+
+    (Env(e3.archive.add(n, v), e.context), t)
+  }
+
   private def collect(e: Env, s: Scope, n: Node): Env = n match {
     case ast.Top(ns) =>
       ns.foldLeft(e) { case (e, n) => collect(e, s, n) }
@@ -190,6 +268,12 @@ object TypeSystem {
       val b = Symbol(s.name, nm, a)(n.pos, true, true, s.level)
       val c = e.context.addDef(b, r)
       e.copy(e.archive.add(n, NodeMeta(types.Var("Unit"), Some(b))), c)
+    case ast.Cond(_, bd, _) =>
+      bd.foldLeft(e) { case (e, n) => collect(e, s, n) }
+    case ast.Elif(_, bd) =>
+      bd.foldLeft(e) { case (e, n) => collect(e, s, n) }
+    case ast.Else(bd) =>
+      bd.foldLeft(e) { case (e, n) => collect(e, s, n) }
     case ast.Param(nm, tn) =>
       val t = toType(tn)
       val b = Symbol(s.name, nm)(n.pos, false, true, s.level)
