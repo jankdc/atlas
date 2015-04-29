@@ -26,6 +26,9 @@ object CodeGen {
     case n: ast.BinOp   => gen(n, e)
     case n: ast.UnaOp   => gen(n, e)
     case n: ast.Nop     => gen(n, e)
+    case n: ast.Cond    => gen(n, e)
+    case n: ast.Elif    => gen(n, e)
+    case n: ast.Else    => gen(n, e)
     case others         => ???
   }
 
@@ -166,24 +169,41 @@ object CodeGen {
         (ss ++ g, newId)
     }
 
-
     val (rhsGen, id002) = rhs.foldLeft(Seq[String](), id001 - 1) {
       case ((ss, id), nn) =>
         val (g, newId) = gen(nn, Env(id + 1, psMap))
         (ss ++ g.map("  " ++ _), newId)
     }
 
-    val retRes = tp match {
-      case "void" => s"$tp"
-      case _ => s"$tp %$id002"
+    val retRes = {
+      val id003 = id002 + 1
+      val retTp = tp match {
+        case "void" => s"$tp"
+        case _ => s"$tp %$id003"
+      }
+
+      val finalIns = s"  ret $retTp"
+
+      if (tp != "void") {
+        val preamble1 = s"  store $tp %$id002, $tp* %.ret"
+        val preamble2 = s"  %$id003 = load $tp* %.ret"
+        Seq(preamble1, preamble2, finalIns)
+      }
+      else {
+        Seq(finalIns)
+      }
     }
+
+    val retAlloc = if (tp != "void") Seq(s"  %.ret = alloca $tp") else Seq()
 
     (lhsGen   ++
      Seq(beg) ++
+     retAlloc ++
      psAlloc  ++
      psStore  ++
      rhsGen   ++
-     Seq(s"  ret $retRes", end), id002)
+     retRes   ++
+     Seq(end), id002)
    }
 
   private def gen(n: ast.Top, e: Env)
@@ -296,12 +316,90 @@ object CodeGen {
     if (tp == "void") {
       val call = s"call $tp @_$nm${ts.hashCode}($argIns)"
       (ps :+ call, id001)
-
     } else {
       val call = s"%${id001 + 1} = call $tp @_$nm${ts.hashCode}($argIns)"
       (ps :+ call, id001 + 1)
     }
    }
+
+  private def gen(n: ast.Cond, e: Env)
+   (implicit m: NodeMap): (Seq[String], Int) = {
+    val tp = m.get(n).typeid.toLLVMType
+    val (alloc, condId) =
+      if (tp != "void")
+        (s"%${e.id} = alloca $tp", e.id + 1)
+      else
+        ("", e.id)
+
+    val (condGen, id001) = gen(n.cond, e.copy(id = condId))
+    val bodyId = id001 + 1
+    val (bodyGen, id002) = n.body.foldLeft(Seq[String](), bodyId) {
+      case ((ss, id), n) =>
+        val (s, newId) = gen(n, e.copy(id = id + 1))
+        (ss ++ s, newId)
+    }
+    val bodyStore =
+      if (tp != "void")
+        s"store $tp %$id002, $tp* %${e.id}"
+      else
+        ""
+
+    var elseId = id002 + 1
+    var condBr = s"br i1 %$id001, label %$bodyId, label %$elseId"
+
+    val (g, id003) = n.others.foldLeft(Seq[Seq[String]](), elseId){
+      case ((ss, id), n) =>
+        // Needs to skip 2 instruction ids in order to provide space
+        // for label ids.
+        val (s, newId) = gen(n, e.copy(id = id + 1))
+        val withStore =
+          if (tp != "void")
+            s :+ s"store $tp %$newId, $tp* %${e.id}"
+          else
+            s
+        (ss :+ withStore, newId + 1)
+    }
+
+    val newIns = g.map(_ :+ s"br label %$id003")
+    val (newRes, id004) =
+      if (tp != "void")
+        (s"%${id003 + 1} = load $tp* %${e.id}", id003 + 1)
+      else
+       ("", id003)
+
+    (Seq(alloc) ++
+     (condGen :+ condBr) ++
+     ((bodyGen :+ bodyStore) :+ s"br label %$id003") ++
+     newIns.flatten :+ newRes, id004)
+   }
+
+  private def gen(n: ast.Elif, e: Env)
+   (implicit m: NodeMap): (Seq[String], Int) = {
+    val (condGen, id001) = gen(n.cond, e)
+    val bodyId = id001 + 1
+    val (bodyGen, id002) = n.body.foldLeft(Seq[String](), bodyId) {
+      case ((ss, id), n) =>
+        val (s, newId) = gen(n, e.copy(id = id + 1))
+        (ss ++ s, newId)
+    }
+    var elseId = id002 + 1
+    var condBr = s"br i1 %$id001, label %$bodyId, label %$elseId"
+
+    ((condGen :+ condBr) ++ bodyGen, id002)
+   }
+
+  private def gen(n: ast.Else, e: Env)
+   (implicit m: NodeMap): (Seq[String], Int) = {
+    println(e.id)
+    val (bodyGen, id002) = n.body.foldLeft(Seq[String](), e.id - 1) {
+      case ((ss, id), n) =>
+        val (s, newId) = gen(n, e.copy(id = id + 1))
+        (ss ++ s, newId)
+    }
+
+    (bodyGen, id002)
+   }
+
 
   private implicit class LLVMTypeConverter(val t: Type) extends AnyVal {
     def toLLVMType = t match {
