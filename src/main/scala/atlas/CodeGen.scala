@@ -91,12 +91,12 @@ object CodeGen {
     val (rhs, id002) = gen(n.rhs, e.copy(id = id001 + 1))
 
     val binOp = n.op match {
-      case "==" => s"icmp eq $tp %${id002 - 1}, %${id002}"
-      case "!=" => s"icmp ne $tp %${id002 - 1}, %${id002}"
-      case "+" => s"add nsw $tp %${id002 - 1}, %${id002}"
-      case "-" => s"sub nsw $tp %${id002 - 1}, %${id002}"
-      case "*" => s"mul nsw $tp %${id002 - 1}, %${id002}"
-      case "/" => s"sdiv $tp %${id002 - 1}, %${id002}"
+      case "==" => s"icmp eq $tp %${id001}, %${id002}"
+      case "!=" => s"icmp ne $tp %${id001}, %${id002}"
+      case "+" => s"add nsw $tp %${id001}, %${id002}"
+      case "-" => s"sub nsw $tp %${id001}, %${id002}"
+      case "*" => s"mul nsw $tp %${id001}, %${id002}"
+      case "/" => s"sdiv $tp %${id001}, %${id002}"
       case _ => ???
     }
 
