@@ -56,6 +56,9 @@ object Main {
     }
 
     val path = "./bin/main"
+    val output = new BufferedWriter(new FileWriter(new File(path + ".ll")))
+    output.write(genString)
+    output.close()
     (buildLLC(path + ".ll", path)   #&&
      buildLinker(path + ".o", path) #&&
      path).!
