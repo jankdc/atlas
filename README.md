@@ -1,2 +1,3 @@
 # atlas
-Yet Another Programming Language.
+
+Documentation coming soon...
