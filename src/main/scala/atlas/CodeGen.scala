@@ -59,7 +59,7 @@ object CodeGen {
     val id = e.id
     val nm = {
       val actual = e.store.get(n.name) getOrElse n.name
-      val prefix = if (sym.isStatic) "@" else "%"
+      val prefix = if (sym.isStatic) s"@${sym.scope}" else "%"
       prefix + actual
     }
 
@@ -241,6 +241,8 @@ object CodeGen {
       throw CodeGenError(": No appropriate main function could be found.")
     }
 
+    val topGens = n.nodes.map(gen(_, e)).map(_._1).flatten
+
 
     val mainEntry = mutable.Buffer[String]()
     mainEntry += "define i64 @main() {"
@@ -249,45 +251,172 @@ object CodeGen {
     mainEntry += "  ret i64 0"
     mainEntry += "}"
 
-    val printfInt = """@.str = private unnamed_addr constant [4 x i8] c"%d\0A\00", align 1"""
-    val printfBoolT = """@.str-true = private unnamed_addr constant [6 x i8] c"true\0A\00", align 1"""
-    val printfBoolF = """@.str-false = private unnamed_addr constant [7 x i8] c"false\0A\00", align 1"""
-    val printfDef = """declare i32 @printf(i8*, ...)"""
+    val dataTypes = mutable.Buffer[String]()
+    dataTypes += """%struct.Vector = type { i32, i32, i32* }"""
 
-    val printlnInt = mutable.Buffer[String]()
-    printlnInt += s"""define void @_println${"(Int)".hashCode}(i32 %n) {"""
-    printlnInt += "entry:"
-    printlnInt += s"  %0 = call i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([4 x i8]* @.str, i32 0, i32 0), i32 %n)"
-    printlnInt += s"  ret void"
-    printlnInt += "}"
+    val strConst = mutable.Buffer[String]()
+    strConst += """@.str = private unnamed_addr constant [4 x i8] c"%d\0A\00", align 1"""
+    strConst += """@.str1 = private unnamed_addr constant [46 x i8] c"Index %d out of bounds for vector of size %d\0A\00", align 1"""
+    strConst += """@.str-true = private unnamed_addr constant [6 x i8] c"true\0A\00", align 1"""
+    strConst += """@.str-false = private unnamed_addr constant [7 x i8] c"false\0A\00", align 1"""
 
-    val printlnBool = mutable.Buffer[String]()
-    printlnBool += s"""define void @_println${"(Boolean)".hashCode}(i1 %n) {"""
-    printlnBool += "entry:"
-    printlnBool += "  br i1 %n, label %print-t, label %print-f"
-    printlnBool += "print-t:"
-    printlnBool += "  %0 = call i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([6 x i8]* @.str-true, i32 0, i32 0))"
-    printlnBool += "  br label %join"
-    printlnBool += ""
-    printlnBool += "print-f:"
-    printlnBool += "  %1 = call i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([7 x i8]* @.str-false, i32 0, i32 0))"
-    printlnBool += "  br label %join"
-    printlnBool += "join:"
-    printlnBool += "  ret void"
-    printlnBool += "}"
+    val cinterface = mutable.Buffer[String]()
+    cinterface += """declare i32 @printf(i8*, ...)"""
+    cinterface += """declare i8* @malloc(i64)"""
+    cinterface += """declare i8* @realloc(i8* nocapture, i64)"""
+    cinterface += """declare void @exit(i32)"""
+    cinterface += """declare void @free(i8* nocapture)"""
 
-    val topGens = n.nodes.map(gen(_, e)).map(_._1).flatten
+    val printlnCode = mutable.Buffer[String]()
+    printlnCode += s"""define void @_println${"(Int)".hashCode}(i32 %n) {"""
+    printlnCode += "entry:"
+    printlnCode += s"  %0 = call i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([4 x i8]* @.str, i32 0, i32 0), i32 %n)"
+    printlnCode += s"  ret void"
+    printlnCode += "}"
+    printlnCode += s"""define void @_println${"(Boolean)".hashCode}(i1 %n) {"""
+    printlnCode += "entry:"
+    printlnCode += "  br i1 %n, label %print-t, label %print-f"
+    printlnCode += "print-t:"
+    printlnCode += "  %0 = call i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([6 x i8]* @.str-true, i32 0, i32 0))"
+    printlnCode += "  br label %join"
+    printlnCode += ""
+    printlnCode += "print-f:"
+    printlnCode += "  %1 = call i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([7 x i8]* @.str-false, i32 0, i32 0))"
+    printlnCode += "  br label %join"
+    printlnCode += "join:"
+    printlnCode += "  ret void"
+    printlnCode += "}"
+
+    val vectorCode = mutable.Buffer[String]()
+    vectorCode += """; Function Attrs: nounwind ssp uwtable"""
+    vectorCode += """define void @_Z11vector_initP6Vector(%struct.Vector* nocapture %vector) {"""
+    vectorCode += """  %1 = getelementptr inbounds %struct.Vector* %vector, i64 0, i32 0"""
+    vectorCode += """  store i32 0, i32* %1, align 4, !tbaa !1"""
+    vectorCode += """  %2 = getelementptr inbounds %struct.Vector* %vector, i64 0, i32 1"""
+    vectorCode += """  store i32 100, i32* %2, align 4, !tbaa !7"""
+    vectorCode += """  %3 = tail call i8* @malloc(i64 400)"""
+    vectorCode += """  %4 = bitcast i8* %3 to i32*"""
+    vectorCode += """  %5 = getelementptr inbounds %struct.Vector* %vector, i64 0, i32 2"""
+    vectorCode += """  store i32* %4, i32** %5, align 8, !tbaa !8"""
+    vectorCode += """  ret void"""
+    vectorCode += """}"""
+    vectorCode += """"""
+    vectorCode += """; Function Attrs: nounwind ssp uwtable"""
+    vectorCode += """define void @_Z13vector_appendP6Vectori(%struct.Vector* nocapture %vector, i32 %value) {"""
+    vectorCode += """  tail call void @_Z30vector_double_capacity_if_fullP6Vector(%struct.Vector* %vector)"""
+    vectorCode += """  %1 = getelementptr inbounds %struct.Vector* %vector, i64 0, i32 0"""
+    vectorCode += """  %2 = load i32* %1, align 4, !tbaa !1"""
+    vectorCode += """  %3 = add nsw i32 %2, 1"""
+    vectorCode += """  store i32 %3, i32* %1, align 4, !tbaa !1"""
+    vectorCode += """  %4 = sext i32 %2 to i64"""
+    vectorCode += """  %5 = getelementptr inbounds %struct.Vector* %vector, i64 0, i32 2"""
+    vectorCode += """  %6 = load i32** %5, align 8, !tbaa !8"""
+    vectorCode += """  %7 = getelementptr inbounds i32* %6, i64 %4"""
+    vectorCode += """  store i32 %value, i32* %7, align 4, !tbaa !9"""
+    vectorCode += """  ret void"""
+    vectorCode += """}"""
+    vectorCode += """"""
+    vectorCode += """; Function Attrs: nounwind ssp uwtable"""
+    vectorCode += """define void @_Z10vector_setP6Vectorii(%struct.Vector* nocapture %vector, i32 %index, i32 %value) {"""
+    vectorCode += """  %1 = getelementptr inbounds %struct.Vector* %vector, i64 0, i32 0"""
+    vectorCode += """  %2 = load i32* %1, align 4, !tbaa !1"""
+    vectorCode += """  %3 = icmp sgt i32 %2, %index"""
+    vectorCode += """  br i1 %3, label %._crit_edge, label %.lr.ph"""
+    vectorCode += """"""
+    vectorCode += """.lr.ph:                                           ; preds = %0, %.lr.ph"""
+    vectorCode += """  tail call void @_Z13vector_appendP6Vectori(%struct.Vector* %vector, i32 0)"""
+    vectorCode += """  %4 = load i32* %1, align 4, !tbaa !1"""
+    vectorCode += """  %5 = icmp sgt i32 %4, %index"""
+    vectorCode += """  br i1 %5, label %._crit_edge, label %.lr.ph"""
+    vectorCode += """"""
+    vectorCode += """._crit_edge:                                      ; preds = %.lr.ph, %0"""
+    vectorCode += """  %6 = sext i32 %index to i64"""
+    vectorCode += """  %7 = getelementptr inbounds %struct.Vector* %vector, i64 0, i32 2"""
+    vectorCode += """  %8 = load i32** %7, align 8, !tbaa !8"""
+    vectorCode += """  %9 = getelementptr inbounds i32* %8, i64 %6"""
+    vectorCode += """  store i32 %value, i32* %9, align 4, !tbaa !9"""
+    vectorCode += """  ret void"""
+    vectorCode += """}"""
+    vectorCode += """; Function Attrs: ssp uwtable"""
+    vectorCode += """define i32 @_Z10vector_getP6Vectori(%struct.Vector* nocapture readonly %vector, i32 %index) {"""
+    vectorCode += """  %1 = getelementptr inbounds %struct.Vector* %vector, i64 0, i32 0"""
+    vectorCode += """  %2 = load i32* %1, align 4, !tbaa !1"""
+    vectorCode += """  %3 = icmp sle i32 %2, %index"""
+    vectorCode += """  %4 = icmp slt i32 %index, 0"""
+    vectorCode += """  %or.cond = or i1 %3, %4"""
+    vectorCode += """  br i1 %or.cond, label %5, label %7"""
+    vectorCode += """"""
+    vectorCode += """; <label>:5                                       ; preds = %0"""
+    vectorCode += """  %6 = tail call i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([46 x i8]* @.str1, i64 0, i64 0), i32 %index, i32 %2)"""
+    vectorCode += """  tail call void @exit(i32 1) #4"""
+    vectorCode += """  unreachable"""
+    vectorCode += """"""
+    vectorCode += """; <label>:7                                       ; preds = %0"""
+    vectorCode += """  %8 = sext i32 %index to i64"""
+    vectorCode += """  %9 = getelementptr inbounds %struct.Vector* %vector, i64 0, i32 2"""
+    vectorCode += """  %10 = load i32** %9, align 8, !tbaa !8"""
+    vectorCode += """  %11 = getelementptr inbounds i32* %10, i64 %8"""
+    vectorCode += """  %12 = load i32* %11, align 4, !tbaa !9"""
+    vectorCode += """  ret i32 %12"""
+    vectorCode += """}"""
+    vectorCode += """"""
+    vectorCode += """; Function Attrs: nounwind ssp uwtable"""
+    vectorCode += """define void @_Z11vector_freeP6Vector(%struct.Vector* nocapture readonly %vector){"""
+    vectorCode += """  %1 = getelementptr inbounds %struct.Vector* %vector, i64 0, i32 2"""
+    vectorCode += """  %2 = load i32** %1, align 8"""
+    vectorCode += """  %3 = bitcast i32* %2 to i8*"""
+    vectorCode += """  tail call void @free(i8* %3)"""
+    vectorCode += """  ret void"""
+    vectorCode += """}"""
+    vectorCode += """; Function Attrs: nounwind ssp uwtable"""
+    vectorCode += """define void @_Z30vector_double_capacity_if_fullP6Vector(%struct.Vector* nocapture %vector) #1 {"""
+    vectorCode += """  %1 = getelementptr inbounds %struct.Vector* %vector, i64 0, i32 0"""
+    vectorCode += """  %2 = load i32* %1, align 4, !tbaa !1"""
+    vectorCode += """  %3 = getelementptr inbounds %struct.Vector* %vector, i64 0, i32 1"""
+    vectorCode += """  %4 = load i32* %3, align 4, !tbaa !7"""
+    vectorCode += """  %5 = icmp slt i32 %2, %4"""
+    vectorCode += """  br i1 %5, label %15, label %6"""
+    vectorCode += """"""
+    vectorCode += """; <label>:6                                       ; preds = %0"""
+    vectorCode += """  %7 = shl nsw i32 %4, 1"""
+    vectorCode += """  store i32 %7, i32* %3, align 4, !tbaa !7"""
+    vectorCode += """  %8 = getelementptr inbounds %struct.Vector* %vector, i64 0, i32 2"""
+    vectorCode += """  %9 = load i32** %8, align 8, !tbaa !8"""
+    vectorCode += """  %10 = bitcast i32* %9 to i8*"""
+    vectorCode += """  %11 = sext i32 %7 to i64"""
+    vectorCode += """  %12 = shl nsw i64 %11, 2"""
+    vectorCode += """  %13 = tail call i8* @realloc(i8* %10, i64 %12)"""
+    vectorCode += """  %14 = bitcast i8* %13 to i32*"""
+    vectorCode += """  store i32* %14, i32** %8, align 8, !tbaa !8"""
+    vectorCode += """  br label %15"""
+    vectorCode += """"""
+    vectorCode += """; <label>:15                                      ; preds = %0, %6"""
+    vectorCode += """  ret void"""
+    vectorCode += """}"""
+
+    val metaData = mutable.Buffer[String]()
+    metaData += """!llvm.ident = !{!0}"""
+    metaData += """!0 = metadata !{metadata !"Apple LLVM version 6.1.0 (clang-602.0.49) (based on LLVM 3.6.0svn)"}"""
+    metaData += """!1 = metadata !{metadata !2, metadata !3, i64 0}"""
+    metaData += """!2 = metadata !{metadata !"_ZTS6Vector", metadata !3, i64 0, metadata !3, i64 4, metadata !6, i64 8}"""
+    metaData += """!3 = metadata !{metadata !"int", metadata !4, i64 0}"""
+    metaData += """!4 = metadata !{metadata !"omnipotent char", metadata !5, i64 0}"""
+    metaData += """!5 = metadata !{metadata !"Simple C/C++ TBAA"}"""
+    metaData += """!6 = metadata !{metadata !"any pointer", metadata !4, i64 0}"""
+    metaData += """!7 = metadata !{metadata !2, metadata !3, i64 4}"""
+    metaData += """!8 = metadata !{metadata !2, metadata !6, i64 8}"""
+    metaData += """!9 = metadata !{metadata !3, metadata !3, i64 0}"""
 
     val genRes =
       Seq(targetLayout, targetTriple) ++
-      Seq(printfInt,
-          printfBoolT,
-          printfBoolF)                ++
+      dataTypes.toSeq                 ++
+      strConst.toSeq                  ++
       topGens                         ++
       mainEntry.toSeq                 ++
-      printlnInt.toSeq                ++
-      printlnBool.toSeq               ++
-      Seq(printfDef)
+      printlnCode.toSeq               ++
+      vectorCode.toSeq                ++
+      cinterface.toSeq                ++
+      metaData.toSeq
 
     (genRes, e.id)
   }
