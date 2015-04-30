@@ -17,6 +17,7 @@ fn something(): Int
   something_else
 
 fn print5iftrue(b: Boolean): Unit
+  let array = [Int](3, 2 + 5)
   if b
     println(5)
   elif b == false

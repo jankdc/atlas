@@ -43,6 +43,21 @@ object Parser {
     (Seq(ast.App(nm, as)(ts.head.pos)), rs)
   }
 
+  private def parseSubs(ts: Seq[Token]): Result = {
+    val name = one("NamedId")
+    val arg = seq(key("["), parseExpr, key("]"))
+    val parser = seq(name, arg)
+    val (Seq(ast.NamedId(nm), as), rs) = parser(ts)
+    (Seq(ast.Subscript(nm, as)(ts.head.pos)), rs)
+  }
+
+  private def parseCons(ts: Seq[Token]): Result = {
+    val typedef = seq(key("["), parseType, key("]"))
+    val parser = seq(typedef, plist(parseExpr))
+    val (Seq(tp, ast.List(args)), rs) = parser(ts)
+    (Seq(ast.Cons(tp, args)(ts.head.pos)), rs)
+  }
+
   private def parseStmt(ts: Seq[Token]): Result = {
     val exprStmt = seq(parseExpr, one("NewLine"))
     val callStmt = seq(parseApp, one("NewLine"))
@@ -68,12 +83,22 @@ object Parser {
     (Seq(ast.Param(nm, tp)(ts.head.pos)), rs)
   }
 
+  private def parseListType(ts: Seq[Token]): Result = {
+    val parenL = key("[")
+    val parenR = key("]")
+    val parser = seq(parenL, parseType, parenR)
+    val (Seq(tp), rm) = parser(ts)
+    (Seq(ast.ListType(tp)(ts.head.pos)), rm)
+  }
+
   // TODO: Add more types!
   // e.g. tuples, list, maps, polymorphic
   private def parseType(ts: Seq[Token]): Result = {
     val simple = one("NamedId")
     val others = rep(seq(key("->"), simple))
-    val parser = seq(simple, others)
+    val simpTp = seq(simple, others)
+    val parser = any("a type", simpTp, parseListType)
+
     val (types, rs) = parser(ts)
     (Seq(ast.Type(types)(ts.head.pos)), rs)
   }
@@ -168,6 +193,8 @@ object Parser {
       parens,
       integr,
       parseApp,
+      parseSubs,
+      parseCons,
       nameid,
       parseUnaOp,
       boolvl)

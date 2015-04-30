@@ -74,6 +74,8 @@ object Lexer {
     buffer += "(as)"
     buffer += "(\\()"
     buffer += "(\\))"
+    buffer += "(\\[)"
+    buffer += "(\\])"
     buffer += "(->)"
     buffer += "(,)"
     buffer += "(:)"

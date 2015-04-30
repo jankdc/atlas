@@ -30,6 +30,7 @@ case class Context(defTypes: Set[String], bindings: Map[Symbol, Type]) {
     case types.Var(tname) =>
       if (! defTypes.contains(tname))
         throw TypeError(s"$p: Type is not found: $tname")
+    case types.List(tp) => checkType(p, tp)
   }
 }
 

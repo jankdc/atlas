@@ -117,3 +117,19 @@ case class Else(body: Seq[Node])
     (" " * (pos.col - 1)) + s"else$dent$str1"
   }
 }
+
+case class Subscript(name: String, arg: Node)
+  (val pos: LinePos) extends Node {
+  override def toString = s"$name[$arg]"
+}
+
+case class Cons(typeid: Node, args: Seq[Node])
+  (val pos: LinePos) extends Node {
+  override def toString = s"[$typeid](${args.mkString(", ")})"
+}
+
+
+case class ListType(tp: Node)
+  (val pos: LinePos) extends Node {
+  override def toString = s"[$tp]"
+}

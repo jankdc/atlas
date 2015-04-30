@@ -28,6 +28,7 @@ object TypeSystem {
     case n: ast.Cond    => check(e, s, n)
     case n: ast.Elif    => check(e, s, n)
     case n: ast.Else    => check(e, s, n)
+    case n: ast.Cons    => check(e, s, n)
     case others         => ???
   }
 
@@ -258,6 +259,39 @@ object TypeSystem {
     (Env(e3.archive.add(n, v), e.context), t)
   }
 
+  private def check(e: Env, s: Scope, n: ast.Cons): (Env, Type) = {
+    val tp = toType(n.typeid)
+    val e1 = n.args.foldLeft(e) { case (e, arg) =>
+      val (newEnv, argTp) = check(e, s, arg)
+      if (tp != argTp)
+        throw TypeError(s"${arg.pos}: Expected $tp but found $argTp")
+
+      newEnv
+    }
+
+    val t = types.List(tp)
+    val v = NodeMeta(t, None)
+    (e1.copy(archive = e1.archive.add(n, v)), t)
+  }
+
+  private def check(e: Env, s: Scope, n: ast.Subscript): (Env, Type) = {
+    val (sm, tp) = e.context.getDef(n.name, n.pos)
+
+    val e1 = tp match {
+      case types.List(_) =>
+        val (newEnv, acc) = check(e, s, n.arg)
+        if (acc != types.Var("Int"))
+          throw TypeError(s"${n.pos}: Expected Int but found $acc")
+        newEnv
+      case _ =>
+        ???
+    }
+
+    val t = tp
+    val v = NodeMeta(t, Some(sm))
+    (e1.copy(archive = e1.archive.add(n, v)), t)
+  }
+
   private def collect(e: Env, s: Scope, n: Node): Env = n match {
     case ast.Top(ns) =>
       ns.foldLeft(e) { case (e, n) => collect(e, s, n) }
@@ -292,6 +326,7 @@ object TypeSystem {
     case ast.Type(Seq(n)) => toType(n)
     case ast.Type(many) => types.Fun(many.map(toType))
     case ast.NamedId(n) => types.Var(n)
+    case ast.ListType(tp) => types.List(toType(tp))
     case other => ???
   }
 }
