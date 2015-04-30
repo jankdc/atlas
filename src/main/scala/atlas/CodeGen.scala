@@ -390,7 +390,6 @@ object CodeGen {
 
   private def gen(n: ast.Else, e: Env)
    (implicit m: NodeMap): (Seq[String], Int) = {
-    println(e.id)
     val (bodyGen, id002) = n.body.foldLeft(Seq[String](), e.id - 1) {
       case ((ss, id), n) =>
         val (s, newId) = gen(n, e.copy(id = id + 1))

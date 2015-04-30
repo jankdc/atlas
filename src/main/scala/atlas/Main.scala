@@ -23,8 +23,55 @@ object Main {
 
   def main(args: Array[String]): Unit = {
 
-    // Process Command Line Arguments.
-    val srcPath = args.toSeq match {
+    debugCompiler(verbose = false)
+    // processCmd(args)
+  }
+
+  private def debugCompiler(verbose: Boolean): Unit = try {
+    val stream = Source.fromURL(getClass().getResource("/atom.atlas"))
+    val source = stream.mkString
+    val tokens = mkTokens(source)
+
+    if (verbose) {
+      println("Tokens:")
+      println(tokens.map(toString(_)).mkString("\n"))
+    }
+
+    val astree = mkASTree(tokens)
+    val petree = partEval(astree)
+
+    if (verbose) {
+      println("ASTree:")
+      println(petree)
+    }
+
+    val context = Context(buildInTps, builtInFns)
+    val nodeMap = collectTypes(context, petree)
+    val genCode = genLLVM(petree)(nodeMap)
+    val genString = genCode.mkString("\n")
+
+    if (verbose) {
+      println("LLVM Output:")
+      println(genString)
+    }
+
+    val path = "./bin/main"
+    (buildLLC(path + ".ll", path)   #&&
+     buildLinker(path + ".o", path) #&&
+     path).!
+  }
+  catch {
+    case err: ParserError =>
+      println(s"[error]${err.getMessage}")
+    case err: TypeError =>
+      println(s"[error]${err.getMessage}")
+    case err: CodeGenError =>
+      println(s"[error]${err.getMessage}")
+  }
+
+  private def processCmd(args: Seq[String]): Unit = {
+     // Process Command Line Arguments.
+    val srcPath = args match {
       case Seq(src) =>
         src
       case Seq() =>
@@ -35,48 +82,25 @@ object Main {
         return ()
     }
 
-    val debugMode = true
-
     try {
       val filePath = new File(srcPath)
       val stream = Source.fromFile(filePath)
       val source = stream.mkString
       val tokens = mkTokens(source)
-
-      if (debugMode) {
-        println("Source:")
-        println(source)
-        println("Tokens:")
-        println(tokens.map(toString(_)).mkString("\n"))
-      }
-
       val astree = mkASTree(tokens)
       val petree = partEval(astree)
-
-      if (debugMode) {
-        println("ASTree:")
-        println(petree)
-      }
-
       val context = Context(buildInTps, builtInFns)
       val nodeMap = collectTypes(context, petree)
       val genCode = genLLVM(petree)(nodeMap)
       val genString = genCode.mkString("\n")
-
-      val prefix = filePath.getName.split('.').head
+      val prefix = filePath.getPath.split('.').head
       val fullnm = prefix + ".ll"
       val output = new BufferedWriter(new FileWriter(new File(fullnm)))
+
       output.write(genString)
       output.close()
+      (buildLLC(fullnm, prefix) #&& buildLinker(prefix + ".o", prefix))
 
-      if (debugMode) {
-        println("LLVM Input Name:")
-        println(prefix)
-        (buildLLC(fullnm, prefix) #&& buildLinker(prefix + ".o", prefix)).!
-      }
-      else {
-        (buildLLC(fullnm, prefix) #&& buildLinker(prefix + ".o", prefix))
-      }
     }
     catch {
       case err: ParserError =>
