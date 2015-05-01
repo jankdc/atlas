@@ -72,6 +72,8 @@ object Lexer {
     buffer += "(else)"
     buffer += "(elif)"
     buffer += "(as)"
+    buffer += "(or)"
+    buffer += "(and)"
     buffer += "(\\()"
     buffer += "(\\))"
     buffer += "(\\[)"

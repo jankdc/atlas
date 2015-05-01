@@ -29,6 +29,7 @@ object CodeGen {
     case n: ast.Cond    => gen(n, e)
     case n: ast.Elif    => gen(n, e)
     case n: ast.Else    => gen(n, e)
+    case n: ast.Cons    => gen(n, e)
     case others         => ???
   }
 
@@ -101,6 +102,8 @@ object CodeGen {
       case "-" => s"sub nsw $tp %${id001}, %${id002}"
       case "*" => s"mul nsw $tp %${id001}, %${id002}"
       case "/" => s"sdiv $tp %${id001}, %${id002}"
+      case "or" => s"or $tp %${id001}, %${id002}"
+      case "and" => s"or $tp %${id001}, %${id002}"
       case _ => ???
     }
 
@@ -431,7 +434,7 @@ object CodeGen {
 
   private def gen(n: ast.App, e: Env)
    (implicit m: NodeMap): (Seq[String], Int) = {
-    val NodeMeta(typeId, Some(Symbol(_, nm, ts))) = m.get(n)
+    val NodeMeta(typeId, Some(Symbol(sc, nm, ts))) = m.get(n)
     val tp = typeId.toLLVMType
     val (ps, dd, id001) = n.args.foldLeft(Seq[String](), Seq[Int](), e.id - 1) {
       case ((ss, dd, id), arg) =>
@@ -447,10 +450,10 @@ object CodeGen {
      .mkString(", ")
 
     if (tp == "void") {
-      val call = s"call $tp @_$nm${ts.hashCode}($argIns)"
+      val call = s"call $tp @_$sc$nm${ts.hashCode}($argIns)"
       (ps :+ call, id001)
     } else {
-      val call = s"%${id001 + 1} = call $tp @_$nm${ts.hashCode}($argIns)"
+      val call = s"%${id001 + 1} = call $tp @_$sc$nm${ts.hashCode}($argIns)"
       (ps :+ call, id001 + 1)
     }
    }
@@ -531,6 +534,8 @@ object CodeGen {
 
     (bodyGen, id002)
    }
+
+
 
 
   private implicit class LLVMTypeConverter(val t: Type) extends AnyVal {

@@ -11,6 +11,12 @@ fn main(): Unit
   println(isSame(false, true))
   println(is_greater(2, 3))
 
+  println(something_new())
+  println(fibo(10))
+
+  fn something_new(): Int
+    5
+
 fn something(): Int
   static something_else: Int = 32 + 323
   static boolean_value: Boolean = (false == true)
@@ -21,7 +27,6 @@ fn is_greater(lhs: Int, rhs: Int): Boolean
   lhs > rhs
 
 fn print5iftrue(b: Boolean): Unit
-  let array = [Int](3, 2 + 5)
   if b
     println(5)
   elif b == false
@@ -35,10 +40,10 @@ fn print5iftrue(b: Boolean): Unit
     println(0)
 
 fn fibo(n: Int): Int
-  if 32 == n
+  if n == 0 or n == 1
     n
   else
-    5
+    fibo(n - 1) + fibo(n - 2)
 
 fn fibo(m: Int, h: Int): Int
   let variable = 1234

@@ -50,6 +50,8 @@ object PartialEvaluator {
           n.op match {
             case "==" => ast.Boolean(l == r)(n.pos)
             case "!=" => ast.Boolean(l != r)(n.pos)
+            case "or" => ast.Boolean(l || r)(n.pos)
+            case "and" => ast.Boolean(l && r)(n.pos)
             case _ => ???
           }
         case _ => n.copy(lhs, n.op, rhs)(n.pos)

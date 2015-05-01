@@ -85,7 +85,10 @@ object TypeSystem {
         }
     }
 
-    val bt = ts.last
+    val bt = (n.body, ts).zipped.toList
+     .filterNot { case (p, _) => p.isInstanceOf[ast.Fun] }
+     .filterNot { case (p, _) => p.isInstanceOf[ast.Static] }
+     .map(_._2).last
     val rt = toType(n.ret)
     val t1 = types.Var("Unit")
     val sm = Symbol(s.name, n.name)(n.pos, true, true, s.level)
@@ -143,10 +146,24 @@ object TypeSystem {
         if (rhs != exp)
           throw TypeError(s"${n.rhs.pos}: Expected $exp but found $rhs")
         exp
-      case "==" | "!=" | "<" | ">" | "<=" | ">=" =>
+      case "==" | "!=" =>
         val exp = types.Var("Boolean")
         if (lhs != rhs)
           throw TypeError(s"${n.lhs.pos}: Expected $lhs but found $rhs")
+        exp
+      case "<" | ">" | "<=" | ">=" =>
+        val exp = types.Var("Boolean")
+        if (lhs != types.Var("Int"))
+          throw TypeError(s"${n.lhs.pos}: Expected $exp but found $lhs")
+        if (rhs != types.Var("Int"))
+          throw TypeError(s"${n.rhs.pos}: Expected $exp but found $rhs")
+        exp
+      case "or" | "and" =>
+        val exp = types.Var("Boolean")
+        if (lhs != exp)
+          throw TypeError(s"${n.lhs.pos}: Expected $exp but found $lhs")
+        if (rhs != exp)
+          throw TypeError(s"${n.rhs.pos}: Expected $exp but found $rhs")
         exp
     }
 
