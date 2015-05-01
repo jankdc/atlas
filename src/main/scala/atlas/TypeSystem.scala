@@ -29,6 +29,7 @@ object TypeSystem {
     case n: ast.Elif    => check(e, s, n)
     case n: ast.Else    => check(e, s, n)
     case n: ast.Cons    => check(e, s, n)
+    case n: ast.Subscript => check(e, s, n)
     case others         => ???
   }
 
@@ -292,7 +293,7 @@ object TypeSystem {
   }
 
   private def check(e: Env, s: Scope, n: ast.Subscript): (Env, Type) = {
-    val (sm, tp) = e.context.getDef(n.name, n.pos)
+    val (sm, tp@types.List(itemTp)) = e.context.getDef(n.name, n.pos)
 
     val e1 = tp match {
       case types.List(_) =>
@@ -304,7 +305,7 @@ object TypeSystem {
         ???
     }
 
-    val t = tp
+    val t = itemTp
     val v = NodeMeta(t, Some(sm))
     (e1.copy(archive = e1.archive.add(n, v)), t)
   }
