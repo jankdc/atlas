@@ -119,12 +119,23 @@ object CodeGen {
 
   private def gen(n: ast.Let, e: Env)
    (implicit m: NodeMap): (Seq[String], Int) = {
-    val tp = m.get(n.value).typeid.toLLVMTypeAlloc
+    val tpId = m.get(n.value).typeid
+    val tp = tpId.toLLVMTypeAlloc
     val id = e.id
     val alloc = s"%${n.name} = alloca $tp"
     val (value, id001) = gen(n.value, e)
-    val store = s"store $tp %$id001, $tp* %${n.name}"
-    (value ++ Seq(alloc, store), id001)
+    val (store, id002) = tpId match {
+      case types.List(_) =>
+        (Seq(
+         s"%${id001 + 1} = bitcast $tp* %${n.name} to i8*",
+         s"%${id001 + 2} = bitcast $tp* %$id001 to i8*",
+         s"call void @llvm.memcpy.p0i8.p0i8.i64(i8* %${id001 + 1}, i8* %${id001 + 2}, i64 16, i32 8, i1 false)"),
+         id001 + 2)
+      case primitives =>
+        (Seq(s"store $tp %$id001, $tp* %${n.name}"), id001)
+    }
+
+    (value ++ Seq(alloc) ++ store, id002)
    }
 
   private def gen(n: ast.Mut, e: Env)
@@ -273,6 +284,7 @@ object CodeGen {
     cinterface += """declare i8* @realloc(i8* nocapture, i64)"""
     cinterface += """declare void @exit(i32)"""
     cinterface += """declare void @free(i8* nocapture)"""
+    cinterface += """declare void @llvm.memcpy.p0i8.p0i8.i64(i8* nocapture, i8* nocapture readonly, i64, i32, i1) #1"""
 
     val printlnCode = mutable.Buffer[String]()
     printlnCode += s"""define void @_println${"(Int)".hashCode}(i32 %n) {"""
@@ -546,11 +558,11 @@ object CodeGen {
         (ss ++ s, ids :+ newId, newId + 1)
     }
 
-    val alloc = s"%$id001 = alloca %$tpStr, align 8"
-    val initg = s"call void @_Z11vector_initP6Vector(%struct.Vector* %$id001)"
+    val alloc = s"%$id001 = alloca $tpStr, align 8"
+    val initg = s"call void @_Z11vector_initP6Vector($tpStr* %$id001)"
 
     val allocs = ids.map(id =>
-      s"call void @_Z13vector_appendP6Vectori(%$tpStr* %$id001, $vtpStr %$id)")
+      s"call void @_Z13vector_appendP6Vectori($tpStr* %$id001, $vtpStr %$id)")
 
     (argGen ++ Seq(alloc, initg) ++ allocs, id001)
    }
