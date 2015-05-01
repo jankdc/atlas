@@ -27,6 +27,10 @@ fn is_greater(lhs: Int, rhs: Int): Boolean
   lhs > rhs
 
 fn print5iftrue(b: Boolean): Unit
+  let leak = [Int](1, 2, 3, 4, 5)
+
+  println(leak[0])
+
   if b
     println(5)
   elif b == false

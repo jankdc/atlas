@@ -535,14 +535,32 @@ object CodeGen {
     (bodyGen, id002)
    }
 
+  private def gen(n: ast.Cons, e: Env)
+   (implicit m: NodeMap): (Seq[String], Int) = {
+    val tp@types.List(vtp) = m.get(n).typeid
+    val vtpStr = vtp.toLLVMType
+    val tpStr = tp.toLLVMType
+    val (argGen, ids, id001) = n.args.foldLeft(Seq[String](), Seq[Int](), e.id){
+      case ((ss, ids, id), n) =>
+        val (s, newId) = gen(n, e.copy(id = id))
+        (ss ++ s, ids :+ newId, newId + 1)
+    }
 
+    val alloc = s"%$id001 = alloca %$tpStr, align 8"
+    val initg = s"call void @_Z11vector_initP6Vector(%struct.Vector* %$id001)"
 
+    val allocs = ids.map(id =>
+      s"call void @_Z13vector_appendP6Vectori(%$tpStr* %$id001, $vtpStr %$id)")
+
+    (argGen ++ Seq(alloc, initg) ++ allocs, id001)
+   }
 
   private implicit class LLVMTypeConverter(val t: Type) extends AnyVal {
     def toLLVMType = t match {
       case types.Var("Int")     => "i32"
       case types.Var("Boolean") => "i1"
       case types.Var("Unit")    => "void"
+      case types.List(types.Var("Int")) => "%struct.Vector"
       case _ => ""
     }
 
@@ -550,6 +568,7 @@ object CodeGen {
       case types.Var("Int")     => "i32"
       case types.Var("Boolean") => "i1"
       case types.Var("Unit")    => "{}"
+      case types.List(types.Var("Int")) => "%struct.Vector"
       case _ => ""
     }
   }
