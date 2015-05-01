@@ -30,6 +30,7 @@ object CodeGen {
     case n: ast.Elif    => gen(n, e)
     case n: ast.Else    => gen(n, e)
     case n: ast.Cons    => gen(n, e)
+    case n: ast.Subscript => gen(n, e)
     case others         => ???
   }
 
@@ -566,6 +567,23 @@ object CodeGen {
 
     (argGen ++ Seq(alloc, initg) ++ allocs, id001)
    }
+
+  private def gen(n: ast.Subscript, e: Env)
+   (implicit m: NodeMap): (Seq[String], Int) = {
+    val NodeMeta(tp, Some(sym)) = m.get(n)
+    val arrTp = types.List(tp).toLLVMType
+    val indTp = tp.toLLVMType
+    val (indexGen, id001) = gen(n.arg, e)
+    val id002 = id001 + 1
+    val nm = {
+      val actual = e.store.get(n.name) getOrElse n.name
+      val prefix = if (sym.isStatic) s"@${sym.scope}" else "%"
+      prefix + actual
+    }
+
+    val call = s"%$id002 = call $indTp @_Z10vector_getP6Vectori($arrTp* $nm, $indTp %$id001)"
+    (indexGen :+ call, id002)
+  }
 
   private implicit class LLVMTypeConverter(val t: Type) extends AnyVal {
     def toLLVMType = t match {
