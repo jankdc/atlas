@@ -10,17 +10,15 @@ fn main(): Unit
   println(isSame(3, 3))
   println(isSame(false, true))
   println(is_greater(2, 3))
-  [Int](1, 2, 3, 4, 5, 6)
-
-  let leak = [Int](1, 2, 3, 4, 5)
-
-  println(leak[0])
-
   println(something_new())
+  println(name[0])
   println(fibo(10))
 
   fn something_new(): Int
     5
+
+fn makeList(): [Int]
+  [Int](2, 3)
 
 fn something(): Int
   static something_else: Int = 32 + 323
@@ -33,7 +31,6 @@ fn is_greater(lhs: Int, rhs: Int): Boolean
 
 fn print5iftrue(b: Boolean): Unit
   if b
-    let leak = [Int](1, 2, 3, 4, 5)
     println(5)
   elif b == false
     println(4)
@@ -46,7 +43,6 @@ fn print5iftrue(b: Boolean): Unit
     println(0)
 
 fn fibo(n: Int): Int
-  let leak = [Int](2, 3, 4)
   if n == 0 or n == 1
     n
   else

@@ -37,43 +37,78 @@ object CodeGen {
 
   private def gen(n: ast.Integer, e: Env)
    (implicit m: NodeMap): (Seq[String], Int, LiveHeap) = {
-    val id = e.id
-    val alloc = s"%$id = alloca i32, align 4"
-    val store = s"store i32 ${n.value}, i32* %$id"
-    val id001 = id + 1
-    val load = s"%$id001 = load i32* %$id, align 4"
-    (Seq(alloc, store, load), id001, Set())
+    val (gen, id0) = genAllocas(e.id, "i32", n.value.toString)
+    (gen, id0, Set())
   }
 
   private def gen(n: ast.Boolean, e: Env)
    (implicit m: NodeMap): (Seq[String], Int, LiveHeap) = {
-    val id = e.id
-    val alloc = s"%$id = alloca i1, align 4"
-    val store = s"store i1 ${n.value}, i1* %$id"
-    val id001 = id + 1
-    val load = s"%$id001 = load i1* %$id, align 4"
-    (Seq(alloc, store, load), id001, Set())
+    val (gen, id0) = genAllocas(e.id, "i1", n.value.toString)
+    (gen, id0, Set())
   }
 
-  private def gen(n: ast.NamedId, e: Env)
+  private def gen(n: ast.Cons, e: Env)
    (implicit m: NodeMap): (Seq[String], Int, LiveHeap) = {
-    val atlas.NodeMeta(typeId, Some(sym)) = m.get(n)
-    val tp = typeId.toLLVMTypeAlloc
-    val id = e.id
+    val tp@types.List(vtp) = m.get(n).typeid
+    val vtpStr = vtp.toLLVMType
+    val tpStr = tp.toLLVMType
+
+    val (argGen, ids, id1, heap1) = n.args.foldLeft(
+      Seq[String](), Seq[Int](), e.id, Set[String]()){
+
+      case ((ss, ids, id, hh), n) =>
+        val (s, newId, h) = gen(n, e.copy(id = id))
+        (ss ++ s, ids :+ newId, newId + 1, hh ++ h)
+    }
+
+    val calls = "call void"
+    val alloc = s"%$id1 = alloca $tpStr, align 8"
+    val initg = s"$calls @_Z11vector_initP6Vector($tpStr* %$id1)"
+    val appGn = ids.map(
+      id => s"$calls @_Z13vector_appendP6Vectori($tpStr* %$id1, $vtpStr %$id)")
+
+
+    (argGen ++ Seq(alloc, initg) ++ appGn, id1, heap1 ++ Set(id1.toString))
+   }
+
+  private def gen(n: ast.Subscript, e: Env)
+   (implicit m: NodeMap): (Seq[String], Int, LiveHeap) = {
+    val NodeMeta(tp, Some(sym)) = m.get(n)
+    val arrTp = types.List(tp).toLLVMType
+    val indTp = tp.toLLVMType
+    val (indexGen, id1, heap1) = gen(n.arg, e)
+    val id2 = id1 + 1
     val nm = {
       val actual = e.store.get(n.name) getOrElse n.name
       val prefix = if (sym.isStatic) s"@${sym.scope}" else "%"
       prefix + actual
     }
 
-    (Seq(s"%$id = load $tp* $nm"), id, Set())
+    val call = s"%$id2 = call $indTp @_Z10vector_getP6Vectori($arrTp* $nm, $indTp %$id1)"
+    (indexGen :+ call, id2, heap1)
+  }
+
+  private def gen(n: ast.NamedId, e: Env)
+   (implicit m: NodeMap): (Seq[String], Int, LiveHeap) = {
+    val id0 = e.id
+    val atlas.NodeMeta(typeId, Some(sym)) = m.get(n)
+    val tp = typeId.toLLVMTypeAlloc
+    val nm = getStoreName(e.store, sym)
+
+    (Seq(s"%$id0 = load $tp* $nm"), id0, Set())
    }
+
+  private def getStoreName(store: Store, sym: Symbol): String = {
+    val actual = store.get(sym.name) getOrElse sym.name
+    val prefix = if (sym.isStatic) s"@${sym.scope}" else "%"
+    prefix + actual
+  }
 
   private def gen(n: ast.Static, e: Env)
    (implicit m: NodeMap): (Seq[String], Int, LiveHeap) = {
     val Some(Symbol(sc0, nm0, _)) = m.get(n).sym
     val tp = m.get(n.value).typeid.toLLVMType
-    val id = e.id
+    val id0 = e.id - 1
 
     val data = n.value match {
       case ast.Integer(n) => n
@@ -83,62 +118,92 @@ object CodeGen {
         throw CodeGenError(msg)
     }
 
-    (Seq(s"@$sc0$nm0 = internal constant $tp $data"), id - 1, Set())
+    (Seq(s"@$sc0$nm0 = internal constant $tp $data"), id0 - 1, Set())
   }
 
   private def gen(n: ast.BinOp, e: Env)
    (implicit m: NodeMap): (Seq[String], Int, LiveHeap) = {
-    val tp = m.get(n.lhs).typeid.toLLVMTypeAlloc
+    val tp = m.get(n.lhs).typeid.toLLVMType
 
-    val (lhs, id001, _) = gen(n.lhs, e)
-    val (rhs, id002, _) = gen(n.rhs, e.copy(id = id001 + 1))
+    val (lhs, id1, _) = gen(n.lhs, e)
+    val (rhs, id2, _) = gen(n.rhs, e.copy(id = id1 + 1))
 
     val binOp = n.op match {
-      case "==" => s"icmp eq $tp %${id001}, %${id002}"
-      case "!=" => s"icmp ne $tp %${id001}, %${id002}"
-      case ">=" => s"icmp sge $tp %${id001}, %${id002}"
-      case "<=" => s"icmp sle $tp %${id001}, %${id002}"
-      case "<" => s"icmp sgt $tp %${id001}, %${id002}"
-      case ">" => s"icmp slt $tp %${id001}, %${id002}"
-      case "+" => s"add nsw $tp %${id001}, %${id002}"
-      case "-" => s"sub nsw $tp %${id001}, %${id002}"
-      case "*" => s"mul nsw $tp %${id001}, %${id002}"
-      case "/" => s"sdiv $tp %${id001}, %${id002}"
-      case "or" => s"or $tp %${id001}, %${id002}"
-      case "and" => s"or $tp %${id001}, %${id002}"
+      case "=="  => s"icmp eq $tp %${id1}, %${id2}"
+      case "!="  => s"icmp ne $tp %${id1}, %${id2}"
+      case ">="  => s"icmp sge $tp %${id1}, %${id2}"
+      case "<="  => s"icmp sle $tp %${id1}, %${id2}"
+      case "<"   => s"icmp sgt $tp %${id1}, %${id2}"
+      case ">"   => s"icmp slt $tp %${id1}, %${id2}"
+      case "+"   => s"add nsw $tp %${id1}, %${id2}"
+      case "-"   => s"sub nsw $tp %${id1}, %${id2}"
+      case "*"   => s"mul nsw $tp %${id1}, %${id2}"
+      case "/"   => s"sdiv $tp %${id1}, %${id2}"
+      case "or"  => s"or $tp %${id1}, %${id2}"
+      case "and" => s"and $tp %${id1}, %${id2}"
       case _ => ???
     }
 
-    val id003 = id002 + 1
-
-    (lhs ++ rhs ++ Seq(s"%${id003} = $binOp"), id003, Set())
+    val id3 = id2 + 1
+    (lhs ++ rhs ++ Seq(s"%${id3} = $binOp"), id3, Set())
   }
 
 
   private def gen(n: ast.UnaOp, e: Env)
    (implicit m: NodeMap): (Seq[String], Int, LiveHeap) =
-    (Seq(), e.id - 1, Set())
+    n.op match {
+      case "-"  =>
+        val binOp = ast.BinOp(ast.Integer(-1)(n.pos), "*", n.rhs)(n.pos)
+        gen(binOp, e)
+      case "!"  =>
+        val (lhs, id1, _) = gen(n.rhs, e)
+        (Seq(s"%${id1 + 1} = add i1 $id1, 1"), id1 + 1, Set())
+      case _ => ???
+    }
 
   private def gen(n: ast.Let, e: Env)
    (implicit m: NodeMap): (Seq[String], Int, LiveHeap) = {
     val tpId = m.get(n.value).typeid
-    val tp = tpId.toLLVMTypeAlloc
-    val id = e.id
-    val alloc = s"%${n.name} = alloca $tp"
-    val (value, id001, heap1) = gen(n.value, e)
-    val (store, id002) = tpId match {
+    val tpSt = tpId.toLLVMType
+
+    val alloc = s"%${n.name} = alloca $tpSt"
+    val (valueGen1, id1, heap1) = gen(n.value, e)
+
+    val (store, id3) = tpId match {
       case types.List(_) =>
-        (Seq(
-         s"%${id001 + 1} = bitcast $tp* %${n.name} to i8*",
-         s"%${id001 + 2} = bitcast $tp* %$id001 to i8*",
-         s"call void @llvm.memcpy.p0i8.p0i8.i64(i8* %${id001 + 1}, i8* %${id001 + 2}, i64 16, i32 8, i1 false)"),
-         id001 + 2)
-      case primitives =>
-        (Seq(s"store $tp %$id001, $tp* %${n.name}"), id001)
+        genMemCopy(id1 + 1, s"%$id1", s"%${n.name}", tpSt)
+      case primitiveType =>
+        (Seq(s"store $tpSt %$id1, $tpSt* %${n.name}"), id1)
     }
 
-    (value ++ Seq(alloc) ++ store, id002, heap1)
-   }
+    (valueGen1 ++ Seq(alloc) ++ store, id3, heap1)
+  }
+
+  private def genAllocas(id: Int, tp: String, value: String)
+    (implicit m: NodeMap): (Seq[String], Int) = {
+    val id1 = id + 1
+
+    val alloc = s"%$id = alloca $tp"
+    val store = s"store $tp $value, $tp* %$id"
+    val loads = s"%$id1 = load $tp* %$id"
+    (Seq(alloc, store, loads), id1)
+  }
+
+  private def genMemCopy(id: Int, srcId: String, dstId: String, tp: String)
+    (implicit m: NodeMap): (Seq[String], Int) = {
+    val id1 = id
+    val id2 = id1 + 1
+
+    val srcCast = s"%$id1 = bitcast $tp* $srcId to i8*"
+    val dstCast = s"%$id2 = bitcast $tp* $dstId to i8*"
+    val memCopy = s"call void @llvm.memcpy.p0i8.p0i8.i64(i8* %$id2, i8* %$id1, i64 16, i32 8, i1 false)"
+
+    (Seq(srcCast, dstCast, memCopy), id2)
+  }
+
+  private def genFreeMemStruct(id: String): String = {
+    s"call void @_Z11vector_freeP6Vector(%struct.Vector* %$id)"
+  }
 
   private def gen(n: ast.Mut, e: Env)
    (implicit m: NodeMap): (Seq[String], Int, LiveHeap) =
@@ -156,6 +221,7 @@ object CodeGen {
     val res = ps.mkString(", ")
     val beg = s"define internal $tp @_$sc0$nm0$hashedTs0($res) {"
     val end = "}"
+    val retAlloc = if (tp != "void") Seq(s"  %.ret = alloca $tp") else Seq()
 
     val (lhs, rhs) = n.body.partition {
       case n: ast.Fun => true
@@ -163,7 +229,7 @@ object CodeGen {
       case _ => false
     }
 
-    val (psAlloc, id001) = n.params.foldLeft(Seq[String](), 1) {
+    val (psAlloc, id1) = n.params.foldLeft(Seq[String](), 1) {
       case ((ss, id), n@ast.Param(nm, _)) =>
         val newId = id + 1
         val lta = m.get(n).typeid.toLLVMTypeAlloc
@@ -172,7 +238,7 @@ object CodeGen {
     }
 
     val psLen: Int = n.params.length
-    val init = id001 - psLen
+    val init = id1 - psLen
     val psIds = (init to psLen).toList
 
     val psStore = (n.params, psIds).zipped.toList.map {
@@ -189,50 +255,46 @@ object CodeGen {
         (ss ++ g, newId)
     }
 
-    val (rhsGen, id002, heap1) = rhs.foldLeft(
+    val (rhsGen, id2, heap1) = rhs.foldLeft(
       Seq[String](),
-      id001 - 1,
+      id1 - 1,
       Set[String]()) {
       case ((ss, id, hh), nn) =>
         val (g, newId, h) = gen(nn, Env(id + 1, psMap))
         (ss ++ g.map("  " ++ _), newId, hh ++ h)
     }
 
-    val retRes = {
-      val id003 = id002 + 1
+    val (retRes, id3) = {
+      val (retGn, finalId) = tp match {
+        case "void" =>
+          (Seq(), id2)
+        case "%struct.Vector" =>
+          val idd1 = id2  + 1
+          val idd2 = idd1 + 1
+          val preamble1 = s"  %$idd1 = load $tp* %$id2"
+          val preamble2 = s"  store $tp %$idd1, $tp* %.ret"
+          val preamble3 = s"  %$idd2 = load $tp* %.ret"
+          (Seq(preamble1, preamble2, preamble3), idd2)
+        case others =>
+          val id = id2 + 1
+          val preamble1 = s"  store $tp %$id2, $tp* %.ret"
+          val preamble2 = s"  %$id = load $tp* %.ret"
+          (Seq(preamble1, preamble2), id)
+      }
+
       val retTp = tp match {
-        case "void" => s"$tp"
-        case _ => s"$tp %$id003"
+        case "void" => s"  ret void"
+        case _      => s"  ret $tp %$finalId"
       }
 
-      val finalIns = s"  ret $retTp"
-
-      if (tp != "void") {
-        val preamble1 = s"  store $tp %$id002, $tp* %.ret"
-        val preamble2 = s"  %$id003 = load $tp* %.ret"
-        Seq(preamble1, preamble2, finalIns)
-      }
-      else {
-        Seq(finalIns)
-      }
+      (retGn :+ retTp, finalId)
     }
 
-    val retAlloc = if (tp != "void") Seq(s"  %.ret = alloca $tp") else Seq()
-
-    val frees = tp match {
-      case "void" =>
-        (heap1).map {
-          case id => s"  call void @_Z11vector_freeP6Vector(%struct.Vector* %$id)"
-        }
-      case others =>
-        (heap1 - id002.toString).map {
-          case id => s"  call void @_Z11vector_freeP6Vector(%struct.Vector* %$id)"
-        }
-    }
-
-    val stillNeedHeap = tp match {
-      case "%struct.Vector" => Set[String](id002.toString)
-      case others => Set[String]()
+    val (frees, heap2) = tp match {
+      case "%struct.Vector" =>
+        ((heap1 - id3.toString).map(genFreeMemStruct), Set[String](id3.toString))
+      case primitives =>
+        ((heap1).map(genFreeMemStruct), Set[String]())
     }
 
     (lhsGen   ++
@@ -243,7 +305,7 @@ object CodeGen {
      rhsGen   ++
      frees    ++
      retRes   ++
-     Seq(end), id002, stillNeedHeap)
+     Seq(end), id3, heap2)
    }
 
   private def gen(n: ast.Top, e: Env)
@@ -470,7 +532,7 @@ object CodeGen {
    (implicit m: NodeMap): (Seq[String], Int, LiveHeap) = {
     val NodeMeta(typeId, Some(Symbol(sc, nm, ts))) = m.get(n)
     val tp = typeId.toLLVMType
-    val (ps, dd, id001, heap1) = n.args.foldLeft(
+    val (ps, dd, id1, heap1) = n.args.foldLeft(
       Seq[String](),
       Seq[Int](),
       e.id - 1,
@@ -487,14 +549,36 @@ object CodeGen {
      .map { case (argTp, id) => s"$argTp %$id" }
      .mkString(", ")
 
+    val (callGen, id2) =
     if (tp == "void") {
       val call = s"call $tp @_$sc$nm${ts.hashCode}($argIns)"
-      (ps :+ call, id001, heap1)
+      (ps :+ call, id1)
     } else {
-      val call = s"%${id001 + 1} = call $tp @_$sc$nm${ts.hashCode}($argIns)"
-      (ps :+ call, id001 + 1, heap1)
+      val call = s"%${id1 + 1} = call $tp @_$sc$nm${ts.hashCode}($argIns)"
+      (ps :+ call, id1 + 1)
     }
-   }
+
+    typeId match {
+      case types.List(_) =>
+        val (allocGen, id3, heap2) = genAllocStore(id2 + 1, s"%$id2", typeId)
+        (callGen ++ allocGen, id3, heap2 ++ heap1)
+      case _ =>
+        (callGen, id2, heap1)
+    }
+  }
+
+  private def genAllocStore(id: Int, v: String, tp: Type)
+   (implicit m: NodeMap): (Seq[String], Int, LiveHeap) = {
+    val alloc = s"%$id = alloca ${tp.toLLVMType}"
+    val store = s"store ${tp.toLLVMType} $v, ${tp.toLLVMType}* %$id"
+    val heap1 =
+      if (tp.isInstanceOf[types.List])
+        Set[String](id.toString)
+      else
+        Set[String]()
+
+    (Seq(alloc, store), id, heap1)
+  }
 
   private def gen(n: ast.Cond, e: Env)
    (implicit m: NodeMap): (Seq[String], Int, LiveHeap) = {
@@ -505,9 +589,9 @@ object CodeGen {
       else
         ("", e.id)
 
-    val (condGen, id001, heap1) = gen(n.cond, e.copy(id = condId))
-    val bodyId = id001 + 1
-    val (bodyGen, id002, heap2) = n.body.foldLeft(
+    val (condGen, id1, heap1) = gen(n.cond, e.copy(id = condId))
+    val bodyId = id1 + 1
+    val (bodyGen, id2, heap2) = n.body.foldLeft(
       Seq[String](),
       bodyId,
       Set[String]()) {
@@ -517,14 +601,14 @@ object CodeGen {
     }
     val bodyStore =
       if (tp != "void")
-        s"store $tp %$id002, $tp* %${e.id}"
+        s"store $tp %$id2, $tp* %${e.id}"
       else
         ""
 
-    var elseId = id002 + 1
-    var condBr = s"br i1 %$id001, label %$bodyId, label %$elseId"
+    var elseId = id2 + 1
+    var condBr = s"br i1 %$id1, label %$bodyId, label %$elseId"
 
-    val (g, id003, heap3) = n.others.foldLeft(
+    val (g, id3, heap3) = n.others.foldLeft(
       Seq[Seq[String]](),
       elseId,
       Set[String]()) {
@@ -540,12 +624,12 @@ object CodeGen {
         (ss :+ withStore, newId + 1, hh ++ h)
     }
 
-    val newIns = g.map(_ :+ s"br label %$id003")
-    val (newRes, id004) =
+    val newIns = g.map(_ :+ s"br label %$id3")
+    val (newRes, id4) =
       if (tp != "void")
-        (s"%${id003 + 1} = load $tp* %${e.id}", id003 + 1)
+        (s"%${id3 + 1} = load $tp* %${e.id}", id3 + 1)
       else
-       ("", id003)
+       ("", id3)
 
     val frees = tp match {
       case "void" =>
@@ -553,29 +637,29 @@ object CodeGen {
           case id => s"call void @_Z11vector_freeP6Vector(%struct.Vector* %$id)"
         }
       case others =>
-        ((heap1 ++ heap2 ++ heap3) - id004.toString).map {
+        ((heap1 ++ heap2 ++ heap3) - id4.toString).map {
           case id => s"call void @_Z11vector_freeP6Vector(%struct.Vector* %$id)"
         }
     }
 
     val stillNeedHeap = tp match {
-      case "%struct.Vector" => Set[String](id004.toString)
+      case "%struct.Vector" => Set[String](id4.toString)
       case others => Set[String]()
     }
 
     (Seq(alloc) ++
      (condGen :+ condBr) ++
      (bodyGen :+ bodyStore) ++
-     (frees.toSeq :+ s"br label %$id003") ++
-     (newIns.flatten :+ newRes), id004, stillNeedHeap)
+     (frees.toSeq :+ s"br label %$id3") ++
+     (newIns.flatten :+ newRes), id4, stillNeedHeap)
    }
 
   private def gen(n: ast.Elif, e: Env)
    (implicit m: NodeMap): (Seq[String], Int, LiveHeap) = {
     val tp = m.get(n).typeid.toLLVMType
-    val (condGen, id001, heap1) = gen(n.cond, e)
-    val bodyId = id001 + 1
-    val (bodyGen, id002, heap2) = n.body.foldLeft(
+    val (condGen, id1, heap1) = gen(n.cond, e)
+    val bodyId = id1 + 1
+    val (bodyGen, id2, heap2) = n.body.foldLeft(
       Seq[String](),
       bodyId,
       Set[String]()) {
@@ -583,8 +667,8 @@ object CodeGen {
         val (s, newId, h) = gen(n, e.copy(id = id + 1))
         (ss ++ s, newId, hh ++ h)
     }
-    var elseId = id002 + 1
-    var condBr = s"br i1 %$id001, label %$bodyId, label %$elseId"
+    var elseId = id2 + 1
+    var condBr = s"br i1 %$id1, label %$bodyId, label %$elseId"
 
     val frees = tp match {
       case "void" =>
@@ -592,23 +676,23 @@ object CodeGen {
           case id => s"  call void @_Z11vector_freeP6Vector(%struct.Vector* %$id)"
         }
       case others =>
-        ((heap1 ++ heap2) - id002.toString).map {
+        ((heap1 ++ heap2) - id2.toString).map {
           case id => s"  call void @_Z11vector_freeP6Vector(%struct.Vector* %$id)"
         }
     }
 
     val stillNeedHeap = tp match {
-      case "%struct.Vector" => Set[String](id002.toString)
+      case "%struct.Vector" => Set[String](id2.toString)
       case others => Set[String]()
     }
 
-    ((condGen :+ condBr) ++ bodyGen ++ frees, id002, stillNeedHeap)
+    ((condGen :+ condBr) ++ bodyGen ++ frees, id2, stillNeedHeap)
    }
 
   private def gen(n: ast.Else, e: Env)
    (implicit m: NodeMap): (Seq[String], Int, LiveHeap) = {
     val tp = m.get(n).typeid.toLLVMType
-    val (bodyGen, id002, heap2) = n.body.foldLeft(
+    val (bodyGen, id2, heap2) = n.body.foldLeft(
       Seq[String](),
       e.id - 1,
       Set[String]()) {
@@ -623,59 +707,18 @@ object CodeGen {
           case id => s"  call void @_Z11vector_freeP6Vector(%struct.Vector* %$id)"
         }
       case others =>
-        ((heap2) - id002.toString).map {
+        ((heap2) - id2.toString).map {
           case id => s"  call void @_Z11vector_freeP6Vector(%struct.Vector* %$id)"
         }
     }
 
     val stillNeedHeap = tp match {
-      case "%struct.Vector" => Set[String](id002.toString)
+      case "%struct.Vector" => Set[String](id2.toString)
       case others => Set[String]()
     }
 
-    (bodyGen ++ frees, id002, stillNeedHeap)
+    (bodyGen ++ frees, id2, stillNeedHeap)
    }
-
-  private def gen(n: ast.Cons, e: Env)
-   (implicit m: NodeMap): (Seq[String], Int, LiveHeap) = {
-    val tp@types.List(vtp) = m.get(n).typeid
-    val vtpStr = vtp.toLLVMType
-    val tpStr = tp.toLLVMType
-    val (argGen, ids, id001, heap1) = n.args.foldLeft(
-      Seq[String](),
-      Seq[Int](),
-      e.id,
-      Set[String]()){
-      case ((ss, ids, id, hh), n) =>
-        val (s, newId, h) = gen(n, e.copy(id = id))
-        (ss ++ s, ids :+ newId, newId + 1, hh ++ h)
-    }
-
-    val alloc = s"%$id001 = alloca $tpStr, align 8"
-    val initg = s"call void @_Z11vector_initP6Vector($tpStr* %$id001)"
-
-    val allocs = ids.map(id =>
-      s"call void @_Z13vector_appendP6Vectori($tpStr* %$id001, $vtpStr %$id)")
-
-    (argGen ++ Seq(alloc, initg) ++ allocs, id001, heap1 ++ Set(id001.toString))
-   }
-
-  private def gen(n: ast.Subscript, e: Env)
-   (implicit m: NodeMap): (Seq[String], Int, LiveHeap) = {
-    val NodeMeta(tp, Some(sym)) = m.get(n)
-    val arrTp = types.List(tp).toLLVMType
-    val indTp = tp.toLLVMType
-    val (indexGen, id001, heap1) = gen(n.arg, e)
-    val id002 = id001 + 1
-    val nm = {
-      val actual = e.store.get(n.name) getOrElse n.name
-      val prefix = if (sym.isStatic) s"@${sym.scope}" else "%"
-      prefix + actual
-    }
-
-    val call = s"%$id002 = call $indTp @_Z10vector_getP6Vectori($arrTp* $nm, $indTp %$id001)"
-    (indexGen :+ call, id002, heap1)
-  }
 
   private implicit class LLVMTypeConverter(val t: Type) extends AnyVal {
     def toLLVMType = t match {
