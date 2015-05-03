@@ -121,7 +121,7 @@ object Main {
   }
 
   private def buildLLC(src: String, dst: String): String =
-    s"llc -filetype=obj $src -o $dst.o"
+    s"llc -O3 -filetype=obj $src -o $dst.o"
 
   private def buildLinker(src: String, dst: String): String = {
     val arch = System.getProperty("os.arch")

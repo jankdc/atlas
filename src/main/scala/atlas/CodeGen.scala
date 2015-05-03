@@ -99,16 +99,18 @@ object CodeGen {
    }
 
   private def getStoreName(store: Store, sym: Symbol): String = {
-    val actual = store.get(sym.name) getOrElse sym.name
+    val name = s"${sym.name}${sym.pos.row}${sym.pos.col}"
+    val actual = store.get(name) getOrElse name
     val prefix = if (sym.isStatic) s"@${sym.scope}" else "%"
     prefix + actual
   }
 
   private def gen(n: ast.Static, e: Env)
    (implicit m: NodeMap): (Seq[String], Int, LiveHeap) = {
-    val Some(Symbol(sc0, nm0, _)) = m.get(n).sym
+    val Some(sym@Symbol(sc0, nm0, _)) = m.get(n).sym
     val tp = m.get(n.value).typeid.toLLVMType
     val id0 = e.id - 1
+    val name = s"${sym.name}${sym.pos.row}${sym.pos.col}"
 
     val data = n.value match {
       case ast.Integer(n) => n
@@ -118,7 +120,7 @@ object CodeGen {
         throw CodeGenError(msg)
     }
 
-    (Seq(s"@$sc0$nm0 = internal constant $tp $data"), id0 - 1, Set())
+    (Seq(s"@$sc0$name = internal constant $tp $data"), id0 - 1, Set())
   }
 
   private def gen(n: ast.BinOp, e: Env)
@@ -133,8 +135,8 @@ object CodeGen {
       case "!="  => s"icmp ne $tp %${id1}, %${id2}"
       case ">="  => s"icmp sge $tp %${id1}, %${id2}"
       case "<="  => s"icmp sle $tp %${id1}, %${id2}"
-      case "<"   => s"icmp sgt $tp %${id1}, %${id2}"
-      case ">"   => s"icmp slt $tp %${id1}, %${id2}"
+      case "<"   => s"icmp slt $tp %${id1}, %${id2}"
+      case ">"   => s"icmp sgt $tp %${id1}, %${id2}"
       case "+"   => s"add nsw $tp %${id1}, %${id2}"
       case "-"   => s"sub nsw $tp %${id1}, %${id2}"
       case "*"   => s"mul nsw $tp %${id1}, %${id2}"
@@ -165,15 +167,16 @@ object CodeGen {
    (implicit m: NodeMap): (Seq[String], Int, LiveHeap) = {
     val tpId = m.get(n.value).typeid
     val tpSt = tpId.toLLVMType
+    val name = s"${n.name}${n.pos.row}${n.pos.col}"
 
-    val alloc = s"%${n.name} = alloca $tpSt"
+    val alloc = s"%$name = alloca $tpSt"
     val (valueGen1, id1, heap1) = gen(n.value, e)
 
     val (store, id3) = tpId match {
       case types.List(_) =>
-        genMemCopy(id1 + 1, s"%$id1", s"%${n.name}", tpSt)
+        genMemCopy(id1 + 1, s"%$id1", s"%$name", tpSt)
       case primitiveType =>
-        (Seq(s"store $tpSt %$id1, $tpSt* %${n.name}"), id1)
+        (Seq(s"store $tpSt %$id1, $tpSt* %$name"), id1)
     }
 
     (valueGen1 ++ Seq(alloc) ++ store, id3, heap1)
@@ -216,7 +219,7 @@ object CodeGen {
     val id = e.id
     val tp = m.get(n.ret).typeid.toLLVMType
     val ag = n.params.map(m.get(_)).map(_.typeid.toLLVMType)
-    val ns = n.params.map("%" + _.name)
+    val ns = n.params.map(p => s"%${p.name}${p.pos.row}${p.pos.col}")
     val ps = (ag, ns).zipped.toList.map(_.productIterator.toList.mkString(" "))
     val res = ps.mkString(", ")
     val beg = s"define internal $tp @_$sc0$nm0$hashedTs0($res) {"
@@ -243,11 +246,14 @@ object CodeGen {
 
     val psStore = (n.params, psIds).zipped.toList.map {
       case (n@ast.Param(nm, _), id) =>
+        val name = s"${nm}${n.pos.row}${n.pos.col}"
         val lta = m.get(n).typeid.toLLVMTypeAlloc
-        s"  store $lta %$nm, $lta* %$id"
+        s"  store $lta %$name, $lta* %$id"
     }
 
-    val psMap = (n.params.map(_.name), psIds).zipped.toMap
+    val psMap = (n.params.map(
+      p => s"${p.name}${p.pos.row}${p.pos.col}"
+      ), psIds).zipped.toMap
 
     val (lhsGen, _) = lhs.foldLeft(Seq[String](), 0) {
       case ((ss, id), nn) =>
@@ -634,11 +640,11 @@ object CodeGen {
     val frees = tp match {
       case "void" =>
         (heap1 ++ heap2 ++ heap3).map {
-          case id => s"call void @_Z11vector_freeP6Vector(%struct.Vector* %$id)"
+          case id => s"  call void @_Z11vector_freeP6Vector(%struct.Vector* %$id)"
         }
       case others =>
         ((heap1 ++ heap2 ++ heap3) - id4.toString).map {
-          case id => s"call void @_Z11vector_freeP6Vector(%struct.Vector* %$id)"
+          case id => s"  call void @_Z11vector_freeP6Vector(%struct.Vector* %$id)"
         }
     }
 

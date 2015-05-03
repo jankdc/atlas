@@ -1,56 +1,23 @@
-static something: Int = 40
-
-  # random comment with random spaces on the left
+static BIG_N: Int = 35
 
 fn main(): Unit
-  let john = 32 + 32
-  println(john)
-  println(something())
-  println(isSame(2 + 1, 3))
-  println(isSame(3, 3))
-  println(isSame(false, true))
-  println(is_greater(2, 3))
-  println(something_new())
-  println(name[0])
-  println(fibo(10))
-
-  fn something_new(): Int
-    5
+  println(fibo(BIG_N))
+  println(is_greater(25, 100))
 
 fn makeList(): [Int]
   [Int](2, 3)
 
-fn something(): Int
-  static something_else: Int = 32 + 323
-  static boolean_value: Boolean = (false == true)
-
-  something_else
-
 fn is_greater(lhs: Int, rhs: Int): Boolean
   lhs > rhs
 
-fn print5iftrue(b: Boolean): Unit
-  if b
-    println(5)
-  elif b == false
-    println(4)
-    let something_else = 32
-    if something_else == 32
-      println(10010101)
-    else
-      println(323232)
-  else
-    println(0)
+fn is_smaller(lhs: Int, rhs: Int): Boolean
+  lhs < rhs
 
 fn fibo(n: Int): Int
   if n == 0 or n == 1
     n
   else
     fibo(n - 1) + fibo(n - 2)
-
-fn fibo(m: Int, h: Int): Int
-  let variable = 1234
-  h + variable
 
 fn isSame(n: Int, m: Int): Boolean
   n == m
