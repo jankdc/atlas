@@ -38,15 +38,16 @@ object Main {
     }
 
     val astree = mkASTree(tokens)
+    val context = Context(buildInTps, builtInFns)
+    val _ = collectTypes(context, astree)
     val petree = partEval(astree)
+    val nodeMap = collectTypes(context, petree)
 
     if (verbose) {
       println("ASTree:")
       println(petree)
     }
 
-    val context = Context(buildInTps, builtInFns)
-    val nodeMap = collectTypes(context, petree)
     val genCode = genLLVM(petree)(nodeMap)
     val genString = genCode.mkString("\n")
 

@@ -182,7 +182,12 @@ object TypeSystem {
         if (rhs != exp)
           throw TypeError(s"${n.rhs.pos}: Expected $exp but found $rhs")
         exp
-      case not => ???
+      case "!" =>
+        val exp = types.Var("Boolean")
+        if (rhs != exp)
+          throw TypeError(s"${n.rhs.pos}: Expected $exp but found $rhs")
+        exp
+      case _ => ???
     }
     val p = ((n, n.pos) -> NodeMeta(t, None))
     val v = NodeMeta(t, None)

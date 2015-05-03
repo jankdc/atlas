@@ -1,8 +1,8 @@
 static BIG_N: Int = 35
 
 fn main(): Unit
-  println(fibo(BIG_N))
-  println(is_greater(25, 100))
+  println(fibo(-32))
+  println(is_greater(25, 32))
 
 fn makeList(): [Int]
   [Int](2, 3)
@@ -14,7 +14,7 @@ fn is_smaller(lhs: Int, rhs: Int): Boolean
   lhs < rhs
 
 fn fibo(n: Int): Int
-  if n == 0 or n == 1
+  if n == 0 or n == 1 or n < 0
     n
   else
     fibo(n - 1) + fibo(n - 2)

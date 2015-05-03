@@ -178,7 +178,7 @@ object Parser {
   }
 
   private def parseUnaOp(ts: Seq[Token]): Result = {
-    val parser = seq(key("-"), parseAtom)
+    val parser = seq(any("a unary operator", key("-"), key("!")), parseAtom)
     val (Seq(ast.Operator(op), value), rm) = parser(ts)
     (Seq(ast.UnaOp(op, value)(ts.head.pos)), rm)
   }
@@ -381,6 +381,7 @@ object Parser {
   }
 
   private val precedenceMap = Map(
+    ("!"  -> 0),
     ("and" -> 10),
     ("or" -> 10),
     ("==" -> 20),

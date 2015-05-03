@@ -88,6 +88,7 @@ object Lexer {
     buffer += "(>=)"
     buffer += "(<)"
     buffer += "(>)"
+    buffer += "(!)"
     buffer += "(_)"
     buffer += "([+-/*])"
     buffer.mkString("|").r
