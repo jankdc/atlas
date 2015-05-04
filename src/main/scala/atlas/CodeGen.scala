@@ -93,8 +93,16 @@ object CodeGen {
     val atlas.NodeMeta(typeId, Some(sym)) = m.get(n)
     val tp = typeId.toLLVMTypeAlloc
     val nm = getStoreName(e.store, sym)
+    val ld = s"%$id0 = load $tp* $nm"
 
-    (Seq(s"%$id0 = load $tp* $nm"), id0, Set())
+
+    typeId match {
+      case types.List(_) =>
+        val (gen, id1, heap1) = genAllocStore(id0 + 1, s"%$id0", typeId)
+        (ld +: gen, id1, Set())
+      case _ =>
+        (Seq(ld), id0, Set())
+    }
    }
 
   private def getStoreName(store: Store, sym: Symbol): String = {
@@ -421,7 +429,7 @@ object CodeGen {
     vectorCode += """@.str1 = private unnamed_addr constant [2 x i8] c"[\00", align 1"""
     vectorCode += """@.str2 = private unnamed_addr constant [5 x i8] c"%d, \00", align 1"""
     vectorCode += """@.str3 = private unnamed_addr constant [3 x i8] c"%d\00", align 1"""
-    vectorCode += """@.str4 = private unnamed_addr constant [2 x i8] c"]\00", align 1"""
+    vectorCode += """@.str4 = private unnamed_addr constant [3 x i8] c"]\0A\00", align 1"""
     vectorCode += """@.str5 = private unnamed_addr constant [7 x i8] c"true, \00", align 1"""
     vectorCode += """@.str6 = private unnamed_addr constant [8 x i8] c"false, \00", align 1"""
     vectorCode += "; Function Attrs: ssp uwtable"
@@ -581,7 +589,7 @@ object CodeGen {
     vectorCode += "  ret void"
     vectorCode += "}"
     vectorCode += "; Function Attrs: ssp uwtable"
-    vectorCode += "define void @_Z12print_vectorP9VectorInt(%struct.VectorInt* %vector) #1 {"
+    vectorCode += "define void @_println-478497240(%struct.VectorInt* %vector) #1 {"
     vectorCode += "  %1 = alloca %struct.VectorInt*, align 8"
     vectorCode += "  %i = alloca i32, align 4"
     vectorCode += "  store %struct.VectorInt* %vector, %struct.VectorInt** %1, align 8"
@@ -631,7 +639,7 @@ object CodeGen {
     vectorCode += "  %38 = call i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([3 x i8]* @.str3, i32 0, i32 0), i32 %37)"
     vectorCode += "  br label %39"
     vectorCode += "; <label>:39                                      ; preds = %27, %22"
-    vectorCode += "  %40 = call i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([2 x i8]* @.str4, i32 0, i32 0))"
+    vectorCode += "  %40 = call i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([3 x i8]* @.str4, i32 0, i32 0))"
     vectorCode += "  ret void"
     vectorCode += "}"
     vectorCode += "; Function Attrs: ssp uwtable"
@@ -860,7 +868,7 @@ object CodeGen {
     vectorCode += "; <label>:48                                      ; preds = %46, %44"
     vectorCode += "  br label %49"
     vectorCode += "; <label>:49                                      ; preds = %48, %27"
-    vectorCode += "  %50 = call i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([2 x i8]* @.str4, i32 0, i32 0))"
+    vectorCode += "  %50 = call i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([3 x i8]* @.str4, i32 0, i32 0))"
     vectorCode += "  ret void"
     vectorCode += "}"
     vectorCode += """attributes #0 = { nounwind ssp uwtable "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }"""
@@ -907,24 +915,28 @@ object CodeGen {
     val argIns = (argTps, dd)
      .zipped
      .toList
-     .map { case (argTp, id) => s"$argTp %$id" }
+     .map {
+        case (argTp, id) if argTp.startsWith("%struct.") => s"$argTp* %$id"
+        case (argTp, id)    => s"$argTp %$id"
+      }
      .mkString(", ")
 
     val (callGen, id2) =
-    if (tp == "void") {
-      val call = s"call $tp @_$sc$nm${ts.hashCode}($argIns)"
-      (ps :+ call, id1)
-    } else {
-      val call = s"%${id1 + 1} = call $tp @_$sc$nm${ts.hashCode}($argIns)"
-      (ps :+ call, id1 + 1)
-    }
+      if (tp == "void") {
+        val call = s"call $tp @_$sc$nm${ts.hashCode}($argIns)"
+        (Seq(call), id1)
+      }
+      else {
+        val call = s"%${id1 + 1} = call $tp @_$sc$nm${ts.hashCode}($argIns)"
+        (Seq(call), id1 + 1)
+      }
 
     typeId match {
       case types.List(_) =>
         val (allocGen, id3, heap2) = genAllocStore(id2 + 1, s"%$id2", typeId)
-        (callGen ++ allocGen, id3, heap2 ++ heap1)
+        (ps ++ callGen ++ allocGen, id3, heap2 ++ heap1)
       case _ =>
-        (callGen, id2, heap1)
+        (ps ++ callGen, id2, heap1)
     }
   }
 

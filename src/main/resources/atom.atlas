@@ -1,7 +1,7 @@
 static BIG_N: Int = 35
 
 fn main(): Unit
-  println(fibo(-32))
+  println(fibo(BIG_N))
   println(is_greater(25, 32))
 
 fn makeList(): [Int]

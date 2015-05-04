@@ -19,7 +19,9 @@ object Main {
   lazy val buildInTps = Set("Unit", "Int", "Boolean")
   lazy val builtInFns =
    Map(buildFnSym("println", Seq("Int")) -> types.Var("Unit"),
-       buildFnSym("println", Seq("Boolean")) -> types.Var("Unit"))
+       buildFnSym("println", Seq("Boolean")) -> types.Var("Unit"),
+       buildFnSym("println", Seq("[Int]")) -> types.Var("Unit"),
+       buildFnSym("println", Seq("[Boolean]")) -> types.Var("Unit"))
 
   def main(args: Array[String]): Unit = {
 
