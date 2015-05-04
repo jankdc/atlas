@@ -214,8 +214,8 @@ object CodeGen {
   private def genFreeMemStruct(id: String, tp: Type): String = {
     val sign = genCFnName("vector_free", Seq(tp), types.Var("Unit"))
     tp match {
-      case types.List(_) => s"call $sign(${tp.toLLVMType}* %$id)"
-      case _ => s"call $sign(%${tp.toLLVMType}* %$id)"
+      case types.List(_) => s"  call $sign(${tp.toLLVMType}* %$id)"
+      case _ => s"  call $sign(%${tp.toLLVMType}* %$id)"
     }
   }
 
