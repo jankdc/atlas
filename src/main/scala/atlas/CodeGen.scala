@@ -6,7 +6,7 @@ import scala.collection.mutable
 
 object CodeGen {
   type Store = Map[String, Int]
-  type LiveHeap = Set[String]
+  type LiveHeap = Set[(Type, String)]
   case class Env(id: Int, store: Store)
 
   def genLLVM(n: Node)
@@ -54,7 +54,7 @@ object CodeGen {
     val tpStr = tp.toLLVMType
 
     val (argGen, ids, id1, heap1) = n.args.foldLeft(
-      Seq[String](), Seq[Int](), e.id, Set[String]()){
+      Seq[String](), Seq[Int](), e.id, Set[(Type, String)]()){
 
       case ((ss, ids, id, hh), n) =>
         val (s, newId, h) = gen(n, e.copy(id = id))
@@ -69,7 +69,7 @@ object CodeGen {
     val appSign = genCFnName("vector_append", Seq(tp, vtp), types.Var("Unit"))
     val appGn = ids.map(id => s"call $appSign($tpStr* %$id1, $vtpStr %$id)")
 
-    (argGen ++ Seq(alloc, initg) ++ appGn, id1, heap1 ++ Set(id1.toString))
+    (argGen ++ Seq(alloc, initg) ++ appGn, id1, heap1 ++ Set((tp, id1.toString)))
    }
 
   private def gen(n: ast.Subscript, e: Env)
@@ -77,7 +77,7 @@ object CodeGen {
     val NodeMeta(tp, Some(sym)) = m.get(n)
     val arrTp = types.List(tp).toLLVMType
     val argTp = m.get(n.arg).typeid
-    val indTp = tp.toLLVMType
+    val indTp = argTp.toLLVMType
     val (indexGen, id1, heap1) = gen(n.arg, e)
     val id2 = id1 + 1
     val nm = getStoreName(e.store, sym)
@@ -268,7 +268,7 @@ object CodeGen {
     val (rhsGen, id2, heap1) = rhs.foldLeft(
       Seq[String](),
       id1 - 1,
-      Set[String]()) {
+      Set[(Type, String)]()) {
       case ((ss, id, hh), nn) =>
         val (g, newId, h) = gen(nn, Env(id + 1, psMap))
         (ss ++ g.map("  " ++ _), newId, hh ++ h)
@@ -302,9 +302,16 @@ object CodeGen {
 
     val (frees, heap2) = tp match {
       case struct if struct.startsWith("%struct.") =>
-        ((heap1 - id3.toString).map(genFreeMemStruct(_, types.List(types.Var("Int")))), Set[String](id3.toString))
+        val retHeap = (fnTp, id2.toString)
+        (
+          (heap1 - retHeap).map { case (th, h) => genFreeMemStruct(h, th) },
+          Set[(Type, String)](retHeap)
+        )
       case primitives =>
-        ((heap1).map(genFreeMemStruct(_, types.List(types.Var("Int")))), Set[String]())
+        (
+          (heap1).map { case (th, h) => genFreeMemStruct(h, th) },
+          Set[(Type, String)]()
+        )
     }
 
     (lhsGen   ++
@@ -890,7 +897,7 @@ object CodeGen {
       Seq[String](),
       Seq[Int](),
       e.id - 1,
-      Set[String]()) {
+      Set[(Type, String)]()) {
       case ((ss, dd, id, hh), arg) =>
         val (s, newId, h) = gen(arg, e.copy(id = id + 1))
         (ss ++ s, dd :+ newId, newId, hh ++ h)
@@ -927,16 +934,17 @@ object CodeGen {
     val store = s"store ${tp.toLLVMType} $v, ${tp.toLLVMType}* %$id"
     val heap1 =
       if (tp.isInstanceOf[types.List])
-        Set[String](id.toString)
+        Set[(Type, String)]((tp, id.toString))
       else
-        Set[String]()
+        Set[(Type, String)]()
 
     (Seq(alloc, store), id, heap1)
   }
 
   private def gen(n: ast.Cond, e: Env)
    (implicit m: NodeMap): (Seq[String], Int, LiveHeap) = {
-    val tp = m.get(n).typeid.toLLVMType
+    val retTp = m.get(n).typeid
+    val tp = retTp.toLLVMType
     val (alloc, condId) =
       if (tp != "void")
         (s"%${e.id} = alloca $tp", e.id + 1)
@@ -948,7 +956,7 @@ object CodeGen {
     val (bodyGen, id2, heap2) = n.body.foldLeft(
       Seq[String](),
       bodyId,
-      Set[String]()) {
+      Set[(Type, String)]()) {
       case ((ss, id, hh), n) =>
         val (s, newId, h) = gen(n, e.copy(id = id + 1))
         (ss ++ s, newId, hh ++ h)
@@ -965,7 +973,7 @@ object CodeGen {
     val (g, id3, heap3) = n.others.foldLeft(
       Seq[Seq[String]](),
       elseId,
-      Set[String]()) {
+      Set[(Type, String)]()) {
       case ((ss, id, hh), n) =>
         // Needs to skip 2 instruction ids in order to provide space
         // for label ids.
@@ -988,17 +996,20 @@ object CodeGen {
     val frees = tp match {
       case "void" =>
         (heap1 ++ heap2 ++ heap3).map {
-          case id => genFreeMemStruct(id, types.List(types.Var("Int")))
+          case (th, h) => genFreeMemStruct(h, th)
         }
       case others =>
-        ((heap1 ++ heap2 ++ heap3) - id4.toString).map {
-          case id => genFreeMemStruct(id, types.List(types.Var("Int")))
+        val retHeap = (retTp, id4.toString)
+        (heap1 ++ heap2 ++ heap3 - retHeap).map {
+          case (th, h) => genFreeMemStruct(h, th)
         }
     }
 
     val stillNeedHeap = tp match {
-      case struct if struct.startsWith("%struct.") => Set[String](id4.toString)
-      case others => Set[String]()
+      case struct if struct.startsWith("%struct.") =>
+        Set[(Type, String)]((retTp, id4.toString))
+      case others =>
+        Set[(Type, String)]()
     }
 
     (Seq(alloc) ++
@@ -1010,13 +1021,14 @@ object CodeGen {
 
   private def gen(n: ast.Elif, e: Env)
    (implicit m: NodeMap): (Seq[String], Int, LiveHeap) = {
-    val tp = m.get(n).typeid.toLLVMType
+    val retTp = m.get(n).typeid
+    val tp = retTp.toLLVMType
     val (condGen, id1, heap1) = gen(n.cond, e)
     val bodyId = id1 + 1
     val (bodyGen, id2, heap2) = n.body.foldLeft(
       Seq[String](),
       bodyId,
-      Set[String]()) {
+      Set[(Type, String)]()) {
       case ((ss, id, hh), n) =>
         val (s, newId, h) = gen(n, e.copy(id = id + 1))
         (ss ++ s, newId, hh ++ h)
@@ -1027,17 +1039,20 @@ object CodeGen {
     val frees = tp match {
       case "void" =>
         (heap1 ++ heap2).map {
-          case id => genFreeMemStruct(id, types.List(types.Var("Int")))
+          case (th, h) => genFreeMemStruct(h, th)
         }
       case others =>
-        ((heap1 ++ heap2) - id2.toString).map {
-          case id => genFreeMemStruct(id, types.List(types.Var("Int")))
+        val retHeap = (retTp, id2.toString)
+        (heap1 ++ heap2 - retHeap).map {
+          case (th, h) => genFreeMemStruct(h, th)
         }
     }
 
     val stillNeedHeap = tp match {
-      case struct if struct.startsWith("%struct.") => Set[String](id2.toString)
-      case others => Set[String]()
+      case struct if struct.startsWith("%struct.") =>
+        Set[(Type, String)]((retTp, id2.toString))
+      case others =>
+        Set[(Type, String)]()
     }
 
     ((condGen :+ condBr) ++ bodyGen ++ frees, id2, stillNeedHeap)
@@ -1045,11 +1060,12 @@ object CodeGen {
 
   private def gen(n: ast.Else, e: Env)
    (implicit m: NodeMap): (Seq[String], Int, LiveHeap) = {
-    val tp = m.get(n).typeid.toLLVMType
+    val retTp = m.get(n).typeid
+    val tp = retTp.toLLVMType
     val (bodyGen, id2, heap2) = n.body.foldLeft(
       Seq[String](),
       e.id - 1,
-      Set[String]()) {
+      Set[(Type, String)]()) {
       case ((ss, id, hh), n) =>
         val (s, newId, h) = gen(n, e.copy(id = id + 1))
         (ss ++ s, newId, hh ++ h)
@@ -1058,17 +1074,20 @@ object CodeGen {
     val frees = tp match {
       case "void" =>
         (heap2).map {
-          case id => genFreeMemStruct(id, types.List(types.Var("Int")))
+          case (th, h) => genFreeMemStruct(h, th)
         }
       case others =>
-        ((heap2) - id2.toString).map {
-          case id => genFreeMemStruct(id, types.List(types.Var("Int")))
+        val retHeap = (retTp, id2.toString)
+        (heap2 - retHeap).map {
+          case (th, h) => genFreeMemStruct(h, th)
         }
     }
 
     val stillNeedHeap = tp match {
-      case struct if struct.startsWith("%struct.") => Set[String](id2.toString)
-      case others => Set[String]()
+      case struct if struct.startsWith("%struct.") =>
+        Set[(Type, String)]((retTp, id2.toString))
+      case others =>
+        Set[(Type, String)]()
     }
 
     (bodyGen ++ frees, id2, stillNeedHeap)
