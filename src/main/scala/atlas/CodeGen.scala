@@ -220,8 +220,23 @@ object CodeGen {
   }
 
   private def gen(n: ast.Mut, e: Env)
-   (implicit m: NodeMap): (Seq[String], Int, LiveHeap) =
-    (Seq(), e.id - 1, Set())
+   (implicit m: NodeMap): (Seq[String], Int, LiveHeap) = {
+    val tpId = m.get(n.value).typeid
+    val tpSt = tpId.toLLVMType
+    val name = s"${n.name}${n.pos.row}${n.pos.col}"
+
+    val alloc = s"%$name = alloca $tpSt"
+    val (valueGen1, id1, heap1) = gen(n.value, e)
+
+    val (store, id3) = tpId match {
+      case types.List(_) =>
+        genMemCopy(id1 + 1, s"%$id1", s"%$name", tpSt)
+      case primitiveType =>
+        (Seq(s"store $tpSt %$id1, $tpSt* %$name"), id1)
+    }
+
+    (valueGen1 ++ Seq(alloc) ++ store, id3, heap1)
+  }
 
   private def gen(n: ast.Fun, e: Env)
    (implicit m: NodeMap): (Seq[String], Int, LiveHeap) = {
@@ -230,9 +245,13 @@ object CodeGen {
     val id = e.id
     val fnTp = m.get(n.ret).typeid
     val tp = fnTp.toLLVMType
-    val ag = n.params.map(m.get(_)).map(_.typeid.toLLVMType)
+    val ag = n.params.map(m.get(_)).map(_.typeid)
     val ns = n.params.map(p => s"%${p.name}${p.pos.row}${p.pos.col}")
-    val ps = (ag, ns).zipped.toList.map(_.productIterator.toList.mkString(" "))
+    val ps = (ag, ns).zipped.toList.map {
+      case (s1: types.List, s2) => s"${s1.toLLVMType}* $s2"
+      case (s1, s2) => s"${s1.toLLVMType} $s2"
+    }
+
     val res = ps.mkString(", ")
     val beg = s"define internal $tp @_$sc0$nm0$hashedTs0($res) {"
     val end = "}"
@@ -246,26 +265,44 @@ object CodeGen {
 
     val (psAlloc, id1) = n.params.foldLeft(Seq[String](), 1) {
       case ((ss, id), n@ast.Param(nm, _)) =>
-        val newId = id + 1
-        val lta = m.get(n).typeid.toLLVMTypeAlloc
-        val ins = s"  %$id = alloca $lta"
+        val typeId = m.get(n).typeid
+        val lta = typeId.toLLVMType
+
+        val (ins, newId) = typeId match {
+          case types.List(_) =>
+            (s"", id)
+          case _ =>
+            (s"  %$id = alloca $lta", id + 1)
+        }
+
         (ss :+ ins, newId)
     }
 
-    val psLen: Int = n.params.length
+    val psLen: Int = ag.filterNot(_.isInstanceOf[types.List]).length
     val init = id1 - psLen
     val psIds = (init to psLen).toList
 
     val psStore = (n.params, psIds).zipped.toList.map {
       case (n@ast.Param(nm, _), id) =>
         val name = s"${nm}${n.pos.row}${n.pos.col}"
-        val lta = m.get(n).typeid.toLLVMTypeAlloc
-        s"  store $lta %$name, $lta* %$id"
+        val typeId = m.get(n).typeid
+        val lta = typeId.toLLVMTypeAlloc
+
+        typeId match {
+          case types.List(_) =>
+            ""
+          case _ =>
+            s"  store $lta %$name, $lta* %$id"
+        }
     }
 
-    val psMap = (n.params.map(
-      p => s"${p.name}${p.pos.row}${p.pos.col}"
-      ), psIds).zipped.toMap
+    val psMap = (n.params.filterNot {
+        case p =>
+          m.get(p).typeid match {
+            case types.List(_) => true
+            case _ => false
+          }
+    }.map(p => s"${p.name}${p.pos.row}${p.pos.col}"), psIds).zipped.toMap
 
     val (lhsGen, _) = lhs.foldLeft(Seq[String](), 0) {
       case ((ss, id), nn) =>
@@ -584,8 +621,18 @@ object CodeGen {
     vectorCode += "  %2 = load %struct.VectorInt** %1, align 8"
     vectorCode += "  %3 = getelementptr inbounds %struct.VectorInt* %2, i32 0, i32 2"
     vectorCode += "  %4 = load i32** %3, align 8"
-    vectorCode += "  %5 = bitcast i32* %4 to i8*"
-    vectorCode += "  call void @free(i8* %5)"
+    vectorCode += "  %5 = icmp ne i32* %4, null"
+    vectorCode += "  br i1 %5, label %6, label %11"
+    vectorCode += "  "
+    vectorCode += "  ; <label>:6                                       ; preds = %0"
+    vectorCode += "  %7 = load %struct.VectorInt** %1, align 8"
+    vectorCode += "  %8 = getelementptr inbounds %struct.VectorInt* %7, i32 0, i32 2"
+    vectorCode += "  %9 = load i32** %8, align 8"
+    vectorCode += "  %10 = bitcast i32* %9 to i8*"
+    vectorCode += "  call void @free(i8* %10)"
+    vectorCode += "  br label %11"
+    vectorCode += "  "
+    vectorCode += "  ; <label>:11                                      ; preds = %6, %0"
     vectorCode += "  ret void"
     vectorCode += "}"
     vectorCode += "; Function Attrs: ssp uwtable"
@@ -797,8 +844,19 @@ object CodeGen {
     vectorCode += "  store %struct.VectorBoolean* %vector, %struct.VectorBoolean** %1, align 8"
     vectorCode += "  %2 = load %struct.VectorBoolean** %1, align 8"
     vectorCode += "  %3 = getelementptr inbounds %struct.VectorBoolean* %2, i32 0, i32 2"
-    vectorCode += "  %4 = load i8** %3, align 8"
-    vectorCode += "  call void @free(i8* %4)"
+    vectorCode += "  %4 = load i8** %3"
+    vectorCode += "  %5 = icmp ne i8* %4, null"
+    vectorCode += "  br i1 %5, label %6, label %11"
+    vectorCode += "  "
+    vectorCode += "  ; <label>:6                                       ; preds = %0"
+    vectorCode += "  %7 = load %struct.VectorBoolean** %1, align 8"
+    vectorCode += "  %8 = getelementptr inbounds %struct.VectorBoolean* %7, i32 0, i32 2"
+    vectorCode += "  %9 = load i8** %8"
+    vectorCode += "  %10 = bitcast i8* %9 to i8*"
+    vectorCode += "  call void @free(i8* %10)"
+    vectorCode += "  br label %11"
+    vectorCode += "  "
+    vectorCode += "  ; <label>:11                                      ; preds = %6, %0"
     vectorCode += "  ret void"
     vectorCode += "}"
     vectorCode += "; Function Attrs: ssp uwtable"
@@ -944,13 +1002,7 @@ object CodeGen {
    (implicit m: NodeMap): (Seq[String], Int, LiveHeap) = {
     val alloc = s"%$id = alloca ${tp.toLLVMType}"
     val store = s"store ${tp.toLLVMType} $v, ${tp.toLLVMType}* %$id"
-    val heap1 =
-      if (tp.isInstanceOf[types.List])
-        Set[(Type, String)]((tp, id.toString))
-      else
-        Set[(Type, String)]()
-
-    (Seq(alloc, store), id, heap1)
+    (Seq(alloc, store), id, Set())
   }
 
   private def gen(n: ast.Cond, e: Env)

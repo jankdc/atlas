@@ -1,13 +1,14 @@
 static BIG_N: Int = 35
 
 fn main(): Unit
-  let lolWut = [Int](2, 3, 1, 3)
-  println(fibo(BIG_N))
+  let mut lolWut = [Int](2, 3, 1, 3)
+  println(makeList(lolWut))
   println(is_greater(25, 32))
 
-
-fn makeList(): [Int]
-  [Int](2, 3)
+fn makeList(n: [Int]): [Int]
+  [Int](2, 3, 3)
+  n
+  [Int](3, 4, 1)
 
 fn is_greater(lhs: Int, rhs: Int): Boolean
   lhs > rhs
