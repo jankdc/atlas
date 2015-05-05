@@ -1,8 +1,6 @@
 static BIG_N: Int = 35
 
 fn main(): Unit
-  let mut lolWut = [Int](2, 3, 1, 3)
-  println(makeList(lolWut))
   println(is_greater(25, 32))
 
 fn makeList(n: [Int]): [Int]

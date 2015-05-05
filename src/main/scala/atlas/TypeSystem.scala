@@ -347,8 +347,8 @@ object TypeSystem {
 
   private def toType(n: ast.Node): Type = n match {
     case ast.Type(Seq(n)) => toType(n)
-    case ast.Type(many) => types.Fun(many.map(toType))
-    case ast.NamedId(n) => types.Var(n)
+    case ast.Type(many)   => types.Fun(many.map(toType))
+    case ast.NamedId(n)   => types.Var(n)
     case ast.ListType(tp) => types.List(toType(tp))
     case other => ???
   }

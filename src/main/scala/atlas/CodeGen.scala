@@ -1163,6 +1163,9 @@ object CodeGen {
       case types.Var("Boolean") => "i1"
       case types.Var("Unit")    => "void"
       case types.List(types.Var(s)) => s"%struct.Vector$s"
+      case tp@types.List(types.List(_)) =>
+        val msg = s": LLVM Code Generation for $tp is currently not supported yet! Please refer to the documentation."
+        throw NotImplementedFeature(msg)
       case _ => ???
     }
 
@@ -1171,6 +1174,9 @@ object CodeGen {
       case types.Var("Boolean") => "i1"
       case types.Var("Unit")    => "{}"
       case types.List(types.Var(s)) => s"%struct.Vector$s"
+      case tp@types.List(types.List(_)) =>
+        val msg = s": LLVM Code Generation for $tp is currently not supported yet! Please refer to the documentation."
+        throw NotImplementedFeature(msg)
       case _ => ???
     }
 
@@ -1182,6 +1188,9 @@ object CodeGen {
         val base = "Vector" + s
         val pref = "P" + base.length.toString
         pref + base
+      case tp@types.List(types.List(_)) =>
+        val msg = s": LLVM Code Generation for $tp is currently not supported yet! Please refer to the documentation."
+        throw NotImplementedFeature(msg)
       case _ => ???
     }
   }

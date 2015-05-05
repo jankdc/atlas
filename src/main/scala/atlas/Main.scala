@@ -25,8 +25,8 @@ object Main {
 
   def main(args: Array[String]): Unit = {
 
-    debugCompiler(verbose = false)
-    // processCmd(args)
+    // debugCompiler(verbose = false)
+    processCmd(args)
   }
 
   private def debugCompiler(verbose: Boolean): Unit = try {
@@ -73,6 +73,8 @@ object Main {
       println(s"[error]${err.getMessage}")
     case err: CodeGenError =>
       println(s"[error]${err.getMessage}")
+    case err: NotImplementedFeature =>
+        println(s"[error]${err.getMessage}")
   }
 
   private def processCmd(args: Seq[String]): Unit = {
@@ -105,16 +107,21 @@ object Main {
 
       output.write(genString)
       output.close()
-      (buildLLC(fullnm, prefix) #&& buildLinker(prefix + ".o", prefix))
-
+      (buildLLC(fullnm, prefix) #&& buildLinker(prefix + ".o", prefix)).!
     }
     catch {
       case err: ParserError =>
         println(s"[error]${err.getMessage}")
+        System.exit(-1)
       case err: TypeError =>
         println(s"[error]${err.getMessage}")
+        System.exit(-1)
       case err: CodeGenError =>
         println(s"[error]${err.getMessage}")
+        System.exit(-1)
+      case err: NotImplementedFeature =>
+        println(s"[error]${err.getMessage}")
+        System.exit(-1)
     }
   }
 
