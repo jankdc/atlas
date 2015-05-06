@@ -114,19 +114,20 @@ object CodeGen {
     val tp = valTp.toLLVMType
     val nm = getStoreName(e.store, sym)
 
-    val (extraGen, id2) = valTp match {
+    val (extraGen, id2, heap2) = valTp match {
       case types.List(_) =>
         val cname = genCFnName("copy_vector", Seq(valTp), valTp)
         val fname = genCFnName("vector_free", Seq(valTp), types.Var("Unit"))
         val free = s"call $fname($tp* $nm)"
         val call = s"%${id1 + 1} = call $cname($tp* %$id1)"
-        (Seq(free, call), id1 + 1)
-      case _ => (Seq(), id1)
+        val (ge, d1, _) = genAllocStore(id1 + 2, s"%${id1 + 1}", valTp)
+        val (gm, d2) = genMemCopy(d1 + 1, s"%$d1", nm, valTp.toLLVMType)
+        (Seq(free, call) ++ ge ++ gm, d2, Set(valTp -> nm.tail))
+      case _ =>
+        (Seq(s"store $tp %$id1, $tp* $nm"), id1, Set())
     }
 
-    val store = s"store $tp %$id2, $tp* $nm"
-
-    (valueGen ++ extraGen :+ store, id2, heap1)
+    (valueGen ++ extraGen, id2, heap1 ++ heap2)
   }
 
   private def getStoreName(store: Store, sym: Symbol): String = {
@@ -216,7 +217,7 @@ object CodeGen {
         (Seq(s"store $tpSt %$id1, $tpSt* %$name"), id1, Set())
     }
 
-    (valueGen1 ++ Seq(alloc) ++ store, id3, heap1 ++ heap2)
+    (valueGen1 ++ Seq(alloc) ++ store, id3, Set() ++ heap2)
   }
 
   private def genAllocas(id: Int, tp: String, value: String)
@@ -256,7 +257,7 @@ object CodeGen {
     val name = s"${n.name}${n.pos.row}${n.pos.col}"
 
     val alloc = s"%$name = alloca $tpSt"
-    val (valueGen1, id1, heap1) = gen(n.value, e)
+    val (valueGen1, id1, _) = gen(n.value, e)
 
     val (store, id3, heap2) = (n.value, tpId) match {
       case (ast.NamedId(_), types.List(_)) =>
@@ -271,7 +272,7 @@ object CodeGen {
         (Seq(s"store $tpSt %$id1, $tpSt* %$name"), id1, Set())
     }
 
-    (valueGen1 ++ Seq(alloc) ++ store, id3, heap1 ++ heap2)
+    (valueGen1 ++ Seq(alloc) ++ store, id3, Set() ++ heap2)
   }
 
   private def gen(n: ast.Fun, e: Env)

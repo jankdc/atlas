@@ -27,8 +27,8 @@ object Main {
 
   def main(args: Array[String]): Unit = {
 
-    debugCompiler(verbose = false)
-    // processCmd(args)
+    // debugCompiler(verbose = false)
+    processCmd(args)
   }
 
   private def debugCompiler(verbose: Boolean): Unit = try {
