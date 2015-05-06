@@ -3,7 +3,6 @@ static BIG_N: Int = 35
 fn main(): Unit
   let name = 32
   println(len([Boolean](false, true, false)))
-  pass
 
 fn is_greater(lhs: Int, rhs: Int): Boolean
   lhs > rhs
