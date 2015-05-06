@@ -71,6 +71,7 @@ object Parser {
       parseLet,
       parseMut,
       parseStatic,
+      parseAssign,
       parseFun,
       parseCond)
 
@@ -163,6 +164,15 @@ object Parser {
     val parser  = seq(let, name, assign, parseExpr, newline)
     val (Seq(ast.NamedId(nm), rv), rm) = parser(ts)
     (Seq(ast.Let(nm, rv)(ts.head.pos)), rm)
+  }
+
+  private def parseAssign(ts: Seq[Token]): Result = {
+    val name    = one("NamedId")
+    val assign  = key("=")
+    val newline = one("NewLine")
+    val parser  = seq(name, assign, parseExpr, newline)
+    val (Seq(ast.NamedId(nm), rv), rm) = parser(ts)
+    (Seq(ast.Assign(nm, rv)(ts.head.pos)), rm)
   }
 
   private def parseExpr(ts: Seq[Token]): Result = {

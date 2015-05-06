@@ -1,11 +1,8 @@
 static BIG_N: Int = 35
 
 fn main(): Unit
-  println(is_greater(25, 32))
-
-fn makeList(n: [Int]): [Int]
-  [Int](2, 3, 3)
-  n
+  let name = 32
+  BIG_N = 32
   [Int](3, 4, 1)
 
 fn is_greater(lhs: Int, rhs: Int): Boolean

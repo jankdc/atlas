@@ -31,6 +31,7 @@ object CodeGen {
     case n: ast.Elif    => gen(n, e)
     case n: ast.Else    => gen(n, e)
     case n: ast.Cons    => gen(n, e)
+    case n: ast.Assign  => (Seq(""), e.id - 1, Set())
     case n: ast.Subscript => gen(n, e)
     case others         => ???
   }

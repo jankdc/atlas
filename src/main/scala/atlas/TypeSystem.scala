@@ -29,6 +29,7 @@ object TypeSystem {
     case n: ast.Elif    => check(e, s, n)
     case n: ast.Else    => check(e, s, n)
     case n: ast.Cons    => check(e, s, n)
+    case n: ast.Assign  => check(e, s, n)
     case n: ast.Subscript => check(e, s, n)
     case others         => ???
   }
@@ -56,7 +57,7 @@ object TypeSystem {
     val sm = Symbol(s.name, n.name)(n.pos, false, true, s.level)
     val (e1, t) = check(e, s.copy(name = sn), n.value)
     val c = e1.context.addDef(sm, t)
-    val v = NodeMeta(t, Some(sm))
+    val v = NodeMeta(types.Var("Unit"), Some(sm))
 
     ((Env(e1.archive.add(n, v), c)), types.Var("Unit"))
   }
@@ -66,9 +67,27 @@ object TypeSystem {
     val sm = Symbol(s.name, n.name)(n.pos, false, false, s.level)
     val (e1, t) = check(e, s.copy(name = sn), n.value)
     val c = e1.context.addDef(sm, t)
-    val v = NodeMeta(t, Some(sm))
+    val v = NodeMeta(types.Var("Unit"), Some(sm))
 
     ((Env(e1.archive.add(n, v), c)), types.Var("Unit"))
+  }
+
+  private def check(e: Env, s: Scope, n: ast.Assign): (Env, Type) = {
+    val (sym, tn) = e.context.getDef(n.name, n.pos)
+
+    if (sym.isConstant)
+      throw TypeError(s"${n.pos}: ${n.name} is immutable and cannot be assigned.")
+
+    val sn = s.name + n.name + "_"
+    val (e1, tv) = check(e, s.copy(name = sn), n.value)
+
+    if (tn != tv)
+      throw TypeError(s"${n.pos}: Expected $tn but found $tv")
+
+    val t = types.Var("Unit")
+    val v = NodeMeta(t, Some(sym))
+
+    (e1.copy(archive = e1.archive.add(n, v)), t)
   }
 
   private def check(e: Env, s: Scope, n: ast.Fun): (Env, Type) = {
