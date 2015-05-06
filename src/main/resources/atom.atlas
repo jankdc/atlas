@@ -2,8 +2,8 @@ static BIG_N: Int = 35
 
 fn main(): Unit
   let name = 32
-  BIG_N = 32
-  [Int](3, 4, 1)
+  println(len([Boolean](false, true, false)))
+  pass
 
 fn is_greater(lhs: Int, rhs: Int): Boolean
   lhs > rhs
