@@ -1,14 +1,21 @@
 static BIG_N: Int = 35
+static RANDOM_BOOLEAN: Boolean = false
 
 fn main(): Unit
   let name = 32
   println(len([Boolean](false, true, false)))
+  println(is_smaller(32, 44))
 
 fn is_greater(lhs: Int, rhs: Int): Boolean
   lhs > rhs
 
 fn is_smaller(lhs: Int, rhs: Int): Boolean
   lhs < rhs
+
+  inner()
+
+  fn inner(): Boolean
+    RANDOM_BOOLEAN
 
 fn fibo(n: Int): Int
   if n == 0 or n == 1 or n < 0

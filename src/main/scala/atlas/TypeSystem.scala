@@ -92,9 +92,16 @@ object TypeSystem {
 
   private def check(e: Env, s: Scope, n: ast.Fun): (Env, Type) = {
     val s1 = s.name + n.name + "_"
-    val e1 = n.params.foldLeft(e) {
+    val b1 = e.context.bindings.filterNot {
+      case (sym, types.Var(_)) => ! sym.isStatic
+      case _ => false
+    }
+
+    val e1 = n.params.foldLeft(
+      e.copy(context = e.context.copy(bindings = b1))) {
       case (e, n) => collect(e, Scope(s1, s.level + 1), n)
     }
+
     val e2 = n.body.foldLeft(e1)  {
       case (e, n) => collect(e, Scope(s1, s.level + 1), n)
     }
