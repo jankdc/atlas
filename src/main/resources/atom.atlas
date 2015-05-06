@@ -2,10 +2,12 @@ static BIG_N: Int = 35
 static RANDOM_BOOLEAN: Boolean = false
 
 fn main(): Unit
-  let mut name = false
+  let mut name = [Boolean](false, true)
   println(name)
-  name = true
+  let other_name = name
+  name = [Boolean](true, true)
   println(name)
+  println(other_name)
   # println(len([Boolean](false, true, false)))
   # println(is_smaller(32, 44))
 
