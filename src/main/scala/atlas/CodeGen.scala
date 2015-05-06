@@ -31,7 +31,7 @@ object CodeGen {
     case n: ast.Elif    => gen(n, e)
     case n: ast.Else    => gen(n, e)
     case n: ast.Cons    => gen(n, e)
-    case n: ast.Assign  => (Seq(""), e.id - 1, Set())
+    case n: ast.Assign  => gen(n, e)
     case n: ast.Subscript => gen(n, e)
     case others         => ???
   }
@@ -105,6 +105,17 @@ object CodeGen {
         (Seq(ld), id0, Set())
     }
    }
+
+  private def gen(n: ast.Assign, e: Env)
+   (implicit m: NodeMap): (Seq[String], Int, LiveHeap) = {
+    val Some(sym) = m.get(n).sym
+    val (valueGen, id1, heap1) = gen(n.value, e)
+    val valTp = m.get(n.value).typeid.toLLVMType
+    val nm = getStoreName(e.store, sym)
+    val store = s"store $valTp %$id1, $valTp* $nm"
+
+    (valueGen :+ store, id1, Set())
+  }
 
   private def getStoreName(store: Store, sym: Symbol): String = {
     val name = s"${sym.name}${sym.pos.row}${sym.pos.col}"
@@ -710,6 +721,44 @@ object CodeGen {
     vectorCode += "  %4 = load i32* %3, align 4"
     vectorCode += "  ret i32 %4"
     vectorCode += "}"
+    vectorCode += """; Function Attrs: ssp uwtable"""
+    vectorCode += """define %struct.VectorInt @_Z11copy_vectorP9VectorInt(%struct.VectorInt* %vector) #1 {"""
+    vectorCode += """  %1 = alloca %struct.VectorInt, align 8"""
+    vectorCode += """  %2 = alloca %struct.VectorInt*, align 8"""
+    vectorCode += """  %i = alloca i32, align 4"""
+    vectorCode += """  %item = alloca i32, align 4"""
+    vectorCode += """  store %struct.VectorInt* %vector, %struct.VectorInt** %2, align 8"""
+    vectorCode += """  call void @_Z11vector_initP9VectorInt(%struct.VectorInt* %1)"""
+    vectorCode += """  store i32 0, i32* %i, align 4"""
+    vectorCode += """  br label %3"""
+    vectorCode += """  """
+    vectorCode += """  ; <label>:3                                       ; preds = %14, %0"""
+    vectorCode += """  %4 = load i32* %i, align 4"""
+    vectorCode += """  %5 = load %struct.VectorInt** %2, align 8"""
+    vectorCode += """  %6 = getelementptr inbounds %struct.VectorInt* %5, i32 0, i32 0"""
+    vectorCode += """  %7 = load i32* %6, align 4"""
+    vectorCode += """  %8 = icmp slt i32 %4, %7"""
+    vectorCode += """  br i1 %8, label %9, label %17"""
+    vectorCode += """  """
+    vectorCode += """  ; <label>:9                                       ; preds = %3"""
+    vectorCode += """  %10 = load %struct.VectorInt** %2, align 8"""
+    vectorCode += """  %11 = load i32* %i, align 4"""
+    vectorCode += """  %12 = call i32 @_Z10vector_getP9VectorInti(%struct.VectorInt* %10, i32 %11)"""
+    vectorCode += """  store i32 %12, i32* %item, align 4"""
+    vectorCode += """  %13 = load i32* %item, align 4"""
+    vectorCode += """  call void @_Z13vector_appendP9VectorInti(%struct.VectorInt* %1, i32 %13)"""
+    vectorCode += """  br label %14"""
+    vectorCode += """  """
+    vectorCode += """  ; <label>:14                                      ; preds = %9"""
+    vectorCode += """  %15 = load i32* %i, align 4"""
+    vectorCode += """  %16 = add nsw i32 %15, 1"""
+    vectorCode += """  store i32 %16, i32* %i, align 4"""
+    vectorCode += """  br label %3"""
+    vectorCode += """  """
+    vectorCode += """  ; <label>:17                                      ; preds = %3"""
+    vectorCode += """  %18 = load %struct.VectorInt* %1, align 8"""
+    vectorCode += """  ret %struct.VectorInt %18"""
+    vectorCode += """}"""
     vectorCode += "; Function Attrs: ssp uwtable"
     vectorCode += "define void @_Z11vector_initP13VectorBoolean(%struct.VectorBoolean* %vector) #1 {"
     vectorCode += "  %1 = alloca %struct.VectorBoolean*, align 8"
@@ -970,6 +1019,46 @@ object CodeGen {
     vectorCode += "  %4 = load i32* %3, align 4"
     vectorCode += "  ret i32 %4"
     vectorCode += "}"
+    vectorCode += """; Function Attrs: ssp uwtable"""
+    vectorCode += """define %struct.VectorBoolean @_Z11copy_vectorP13VectorBoolean(%struct.VectorBoolean* %vector) #1 {"""
+    vectorCode += """  %1 = alloca %struct.VectorBoolean, align 8"""
+    vectorCode += """  %2 = alloca %struct.VectorBoolean*, align 8"""
+    vectorCode += """  %i = alloca i32, align 4"""
+    vectorCode += """  %item = alloca i32, align 4"""
+    vectorCode += """  store %struct.VectorBoolean* %vector, %struct.VectorBoolean** %2, align 8"""
+    vectorCode += """  call void @_Z11vector_initP13VectorBoolean(%struct.VectorBoolean* %1)"""
+    vectorCode += """  store i32 0, i32* %i, align 4"""
+    vectorCode += """  br label %3"""
+    vectorCode += """  """
+    vectorCode += """  ; <label>:3                                       ; preds = %16, %0"""
+    vectorCode += """  %4 = load i32* %i, align 4"""
+    vectorCode += """  %5 = load %struct.VectorBoolean** %2, align 8"""
+    vectorCode += """  %6 = getelementptr inbounds %struct.VectorBoolean* %5, i32 0, i32 0"""
+    vectorCode += """  %7 = load i32* %6, align 4"""
+    vectorCode += """  %8 = icmp slt i32 %4, %7"""
+    vectorCode += """  br i1 %8, label %9, label %19"""
+    vectorCode += """  """
+    vectorCode += """  ; <label>:9                                       ; preds = %3"""
+    vectorCode += """  %10 = load %struct.VectorBoolean** %2, align 8"""
+    vectorCode += """  %11 = load i32* %i, align 4"""
+    vectorCode += """  %12 = call zeroext i1 @_Z10vector_getP13VectorBooleani(%struct.VectorBoolean* %10, i32 %11)"""
+    vectorCode += """  %13 = zext i1 %12 to i32"""
+    vectorCode += """  store i32 %13, i32* %item, align 4"""
+    vectorCode += """  %14 = load i32* %item, align 4"""
+    vectorCode += """  %15 = icmp ne i32 %14, 0"""
+    vectorCode += """  call void @_Z13vector_appendP13VectorBooleanb(%struct.VectorBoolean* %1, i1 zeroext %15)"""
+    vectorCode += """  br label %16"""
+    vectorCode += """  """
+    vectorCode += """  ; <label>:16                                      ; preds = %9"""
+    vectorCode += """  %17 = load i32* %i, align 4"""
+    vectorCode += """  %18 = add nsw i32 %17, 1"""
+    vectorCode += """  store i32 %18, i32* %i, align 4"""
+    vectorCode += """  br label %3"""
+    vectorCode += """  """
+    vectorCode += """  ; <label>:19                                      ; preds = %3"""
+    vectorCode += """  %20 = load %struct.VectorBoolean* %1, align 8"""
+    vectorCode += """  ret %struct.VectorBoolean %20"""
+    vectorCode += """}"""
     vectorCode += """attributes #0 = { nounwind ssp uwtable "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }"""
     vectorCode += """attributes #1 = { ssp uwtable "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }"""
     vectorCode += """attributes #2 = { "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }"""

@@ -2,9 +2,12 @@ static BIG_N: Int = 35
 static RANDOM_BOOLEAN: Boolean = false
 
 fn main(): Unit
-  let name = 32
-  println(len([Boolean](false, true, false)))
-  println(is_smaller(32, 44))
+  let mut name = false
+  println(name)
+  name = true
+  println(name)
+  # println(len([Boolean](false, true, false)))
+  # println(is_smaller(32, 44))
 
 fn is_greater(lhs: Int, rhs: Int): Boolean
   lhs > rhs
