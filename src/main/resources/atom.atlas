@@ -8,7 +8,7 @@ fn main(): Unit
   name = [Boolean](true, true)
   println(name)
   println(other_name)
-  # println(len([Boolean](false, true, false)))
+  println(len([Boolean](false, true, false)))
   # println(is_smaller(32, 44))
 
 fn is_greater(lhs: Int, rhs: Int): Boolean
