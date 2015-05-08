@@ -81,8 +81,14 @@ object TypeSystem {
     val sn = s.name + n.name + "_"
     val (e1, tv) = check(e, s.copy(name = sn), n.value)
 
-    if (tn != tv)
-      throw TypeError(s"${n.pos}: Expected $tn but found $tv")
+    (tn, n.op, tv) match {
+      case (types.List(item), "+=", tv) =>
+        if (item != tv)
+          throw TypeError(s"${n.value.pos}: Expected $item but found $tv")
+      case _ =>
+        if (tn != tv)
+          throw TypeError(s"${n.value.pos}: Expected $tn but found $tv")
+    }
 
     val t = types.Var("Unit")
     val v = NodeMeta(t, Some(sym))

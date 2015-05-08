@@ -3,13 +3,17 @@ static RANDOM_BOOLEAN: Boolean = false
 
 fn main(): Unit
   let mut name = [Boolean](false, true)
-  println(name)
-  let other_name = name
   name = [Boolean](true, true)
-  println(name)
-  println(other_name)
-  println(len([Boolean](false, true, false)))
-  # println(is_smaller(32, 44))
+  name = [Boolean](true, false)
+  name = [Boolean](true, false)
+  name = [Boolean](RANDOM_BOOLEAN, false)
+  let other_name = name
+  name = [Boolean](false, true, false)
+  name += true
+  println(make_list(name))
+
+fn make_list(n: [Boolean]): [Boolean]
+  n
 
 fn is_greater(lhs: Int, rhs: Int): Boolean
   lhs > rhs

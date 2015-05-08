@@ -141,7 +141,7 @@ object Parser {
     val assign  = key("=")
     val newline = one("NewLine")
     val parser  = seq(static, name, colon, parseType, assign, parseExpr, newline)
-    val (Seq(ast.NamedId(nm), tp, rv), rm) = parser(ts)
+    val (Seq(ast.NamedId(nm), tp, _, rv), rm) = parser(ts)
     (Seq(ast.Static(nm, tp, rv)(ts.head.pos)), rm)
   }
 
@@ -152,7 +152,7 @@ object Parser {
     val assign  = key("=")
     val newline = one("NewLine")
     val parser  = seq(let, mut, name, assign, parseExpr, newline)
-    val (Seq(ast.NamedId(nm), rv), rm) = parser(ts)
+    val (Seq(ast.NamedId(nm), _, rv), rm) = parser(ts)
     (Seq(ast.Mut(nm, rv)(ts.head.pos)), rm)
   }
 
@@ -162,17 +162,17 @@ object Parser {
     val assign  = key("=")
     val newline = one("NewLine")
     val parser  = seq(let, name, assign, parseExpr, newline)
-    val (Seq(ast.NamedId(nm), rv), rm) = parser(ts)
+    val (Seq(ast.NamedId(nm), _,  rv), rm) = parser(ts)
     (Seq(ast.Let(nm, rv)(ts.head.pos)), rm)
   }
 
   private def parseAssign(ts: Seq[Token]): Result = {
     val name    = one("NamedId")
-    val assign  = key("=")
+    val assign  = any("an assignable operator", key("="), key("+="))
     val newline = one("NewLine")
     val parser  = seq(name, assign, parseExpr, newline)
-    val (Seq(ast.NamedId(nm), rv), rm) = parser(ts)
-    (Seq(ast.Assign(nm, rv)(ts.head.pos)), rm)
+    val (Seq(ast.NamedId(nm), ast.Operator(op), rv), rm) = parser(ts)
+    (Seq(ast.Assign(nm, op, rv)(ts.head.pos)), rm)
   }
 
   private def parseExpr(ts: Seq[Token]): Result = {
@@ -376,6 +376,8 @@ object Parser {
           (Seq(ast.Boolean(true)(ts.head.pos)), rest)
         else if (s == "false")
           (Seq(ast.Boolean(false)(ts.head.pos)), rest)
+        else if (s == "+=" || s == "=")
+          (Seq(ast.Operator(s)(ts.head.pos)), rest)
         else if (precedenceMap contains s)
           (Seq(ast.Operator(s)(ts.head.pos)), rest)
         else

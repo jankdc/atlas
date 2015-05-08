@@ -108,14 +108,21 @@ object CodeGen {
 
   private def gen(n: ast.Assign, e: Env)
    (implicit m: NodeMap): (Seq[String], Int, LiveHeap) = {
-    val Some(sym) = m.get(n).sym
+    val NodeMeta(symTp, Some(sym)) = m.get(n)
     val (valueGen, id1, heap1) = gen(n.value, e)
     val valTp = m.get(n.value).typeid
     val tp = valTp.toLLVMType
     val nm = getStoreName(e.store, sym)
 
-    val (extraGen, id2, heap2) = valTp match {
-      case types.List(_) =>
+    val (extraGen, id2, heap2) = (n.op, valTp) match {
+      case ("+=", _) =>
+        val lstTp = types.List(valTp)
+        val name = genCFnName("vector_append", Seq(lstTp, valTp), types.Var("Unit"))
+        val stpId = s"${lstTp.toLLVMType}*"
+        val vtpId = s"${valTp.toLLVMType}"
+        val call = s"call $name($stpId $nm, $vtpId %$id1)"
+        (Seq(call), id1, Set())
+      case (_, types.List(_)) =>
         val cname = genCFnName("copy_vector", Seq(valTp), valTp)
         val fname = genCFnName("vector_free", Seq(valTp), types.Var("Unit"))
         val free = s"call $fname($tp* $nm)"
@@ -217,7 +224,7 @@ object CodeGen {
         (Seq(s"store $tpSt %$id1, $tpSt* %$name"), id1, Set())
     }
 
-    (valueGen1 ++ Seq(alloc) ++ store, id3, Set() ++ heap2)
+    (valueGen1 ++ Seq(alloc) ++ store, id3, Set((tpId, name)))
   }
 
   private def genAllocas(id: Int, tp: String, value: String)
@@ -272,7 +279,7 @@ object CodeGen {
         (Seq(s"store $tpSt %$id1, $tpSt* %$name"), id1, Set())
     }
 
-    (valueGen1 ++ Seq(alloc) ++ store, id3, Set() ++ heap2)
+    (valueGen1 ++ Seq(alloc) ++ store, id3, Set((tpId, name)))
   }
 
   private def gen(n: ast.Fun, e: Env)

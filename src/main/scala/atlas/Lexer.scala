@@ -86,6 +86,7 @@ object Lexer {
     buffer += "(<=)"
     buffer += "(=)"
     buffer += "(>=)"
+    buffer += "(\\+=)"
     buffer += "(<)"
     buffer += "(>)"
     buffer += "(!)"

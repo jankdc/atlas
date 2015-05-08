@@ -134,7 +134,7 @@ case class ListType(tp: Node)
   override def toString = s"[$tp]"
 }
 
-case class Assign(name: String, value: Node)
+case class Assign(name: String, op: String, value: Node)
   (val pos: LinePos) extends Node {
   override def toString = s"mut $name = $value"
 }
