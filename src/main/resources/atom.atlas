@@ -15,6 +15,8 @@ fn make_list(n: [Boolean]): [Boolean]
   name = [Boolean](false, true, false)
   name += true
   if true
+    let name = 32
+    println(name)
     n
   else
     n

@@ -254,7 +254,8 @@ object TypeSystem {
   }
 
   private def check(e: Env, s: Scope, n: ast.Cond): (Env, Type) = {
-    val newScope = s.copy(level = s.level + 1)
+    val s1 = s.name + "_"
+    val newScope = s.copy(name = s1, level = s.level + 1)
     val cetype = types.Var("Boolean")
     val (e1, catype) = check(e, s, n.cond)
 
@@ -292,7 +293,8 @@ object TypeSystem {
   }
 
   private def check(e: Env, s: Scope, n: ast.Else): (Env, Type) = {
-    val newScope = s.copy(level = s.level + 1)
+    val s1 = s.name + "_"
+    val newScope = s.copy(name = s1, level = s.level + 1)
     val e1 = n.body.foldLeft(e) { case (e, n) => collect(e, newScope, n) }
     val (e2, bodyTypes) = n.body.foldLeft(e1, Seq[Type]()) {
       case ((e, ts), n) =>
@@ -307,7 +309,8 @@ object TypeSystem {
   }
 
   private def check(e: Env, s: Scope, n: ast.Elif): (Env, Type) = {
-    val newScope = s.copy(level = s.level + 1)
+    val s1 = s.name + "_"
+    val newScope = s.copy(name = s1, level = s.level + 1)
     val cetype = types.Var("Boolean")
     val (e1, catype) = check(e, s, n.cond)
 

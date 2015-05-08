@@ -19,6 +19,7 @@ case class Context(defTypes: Set[String], bindings: Map[Symbol, Type]) {
   def getDef(s: String, p: LinePos): (Symbol, Type) =
     bindings
       .toSeq
+      .sortBy { case (sym, _) => -sym.pos.col }
       .find { case (Symbol(_, nm, op), _) => nm + op == s }
       .getOrElse { throw TypeError(s"$p: $s is undefined.") }
 
