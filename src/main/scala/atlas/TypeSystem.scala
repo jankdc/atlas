@@ -118,20 +118,34 @@ object TypeSystem {
         }
     }
 
+    val paramNames = n.params.map(p => p.name)
+    val returnParm = returnsParam(n.body.last, paramNames)
+
     val bt = (n.body, ts).zipped.toList
      .filterNot { case (p, _) => p.isInstanceOf[ast.Fun] }
      .filterNot { case (p, _) => p.isInstanceOf[ast.Static] }
      .map(_._2).last
     val rt = toType(n.ret)
     val t1 = types.Var("Unit")
-    val sm = Symbol(s.name, n.name)(n.pos, true, true, s.level)
-    val e4 = e3.copy(archive = e3.archive.add(n.ret, NodeMeta(rt, None)))
+    val sm = Symbol(s.name, n.name)(n.pos, true, true, s.level, returnParm)
+    val e4 = e3.copy(archive = e3.archive.add(n.ret, NodeMeta(rt, Some(sm))))
 
     if (bt != rt) {
       throw TypeError(s"${n.body.last.pos}: Expected $rt but found $bt")
     }
 
     (e4.copy(context = e.context), types.Var("Unit"))
+  }
+
+  private def returnsParam(n: Node, paramNames: Seq[String]): Boolean = n match {
+    case ast.NamedId(nm) => paramNames contains nm
+    case ast.Cond(_, body, others) =>
+      returnsParam(body.last, paramNames) || others.exists(returnsParam(_, paramNames))
+    case ast.Elif(_, body) =>
+      returnsParam(body.last, paramNames)
+    case ast.Else(body) =>
+      returnsParam(body.last, paramNames)
+    case _ => false
   }
 
   private def check(e: Env, s: Scope, n: ast.Top): (Env, Type) = {
@@ -350,11 +364,13 @@ object TypeSystem {
   private def collect(e: Env, s: Scope, n: Node): Env = n match {
     case ast.Top(ns) =>
       ns.foldLeft(e) { case (e, n) => collect(e, s, n) }
-    case ast.Fun(nm, ps, rt, _) =>
+    case ast.Fun(nm, ps, rt, bd) =>
       val p = ps.map(p => toType(p.typename))
       val r = toType(rt)
+      val paramNames = ps.map(p => p.name)
+      val returnParm = returnsParam(bd.last, paramNames)
       val a = "(" + p.mkString(", ") + ")"
-      val b = Symbol(s.name, nm, a)(n.pos, true, true, s.level)
+      val b = Symbol(s.name, nm, a)(n.pos, true, true, s.level, returnParm)
       val c = e.context.addDef(b, r)
       e.copy(e.archive.add(n, NodeMeta(types.Var("Unit"), Some(b))), c)
     case ast.Cond(_, bd, _) =>

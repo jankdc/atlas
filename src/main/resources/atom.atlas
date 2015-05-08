@@ -2,6 +2,10 @@ static BIG_N: Int = 35
 static RANDOM_BOOLEAN: Boolean = false
 
 fn main(): Unit
+  let list = make_list([Boolean](false, true))
+  println(fibo(20))
+
+fn make_list(n: [Boolean]): [Boolean]
   let mut name = [Boolean](false, true)
   name = [Boolean](true, true)
   name = [Boolean](true, false)
@@ -10,9 +14,11 @@ fn main(): Unit
   let other_name = name
   name = [Boolean](false, true, false)
   name += true
-  println(make_list(name))
+  if true
+    n
+  else
+    n
 
-fn make_list(n: [Boolean]): [Boolean]
   n
 
 fn is_greater(lhs: Int, rhs: Int): Boolean
