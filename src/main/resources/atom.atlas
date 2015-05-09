@@ -2,26 +2,27 @@ static BIG_N: Int = 35
 static RANDOM_BOOLEAN: Boolean = false
 
 fn main(): Unit
-  let list = make_list([Boolean](false, true))
-  println(fibo(20))
+  let mut leak = make_list([Boolean](false))
+  let mut some_number = 32
+  while some_number > 0
+    leak += true
+    some_number = some_number - 1
+
+  println(leak)
+  pass
+  pass
 
 fn make_list(n: [Boolean]): [Boolean]
-  let mut name = [Boolean](false, true)
-  name = [Boolean](true, true)
-  name = [Boolean](true, false)
-  name = [Boolean](true, false)
-  name = [Boolean](RANDOM_BOOLEAN, false)
-  let other_name = name
-  name = [Boolean](false, true, false)
-  name += true
   if true
-    let name = 32
-    println(name)
+    let list = [Boolean](false, true)
     n
+  elif true
+    let list = [Boolean](false, true)
+    list
   else
-    n
+    let list = [Boolean](false, true)
+    list
 
-  n
 
 fn is_greater(lhs: Int, rhs: Int): Boolean
   lhs > rhs

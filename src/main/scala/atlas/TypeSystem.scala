@@ -28,6 +28,7 @@ object TypeSystem {
     case n: ast.Cond    => check(e, s, n)
     case n: ast.Elif    => check(e, s, n)
     case n: ast.Else    => check(e, s, n)
+    case n: ast.While   => check(e, s, n)
     case n: ast.Cons    => check(e, s, n)
     case n: ast.Assign  => check(e, s, n)
     case n: ast.Subscript => check(e, s, n)
@@ -326,6 +327,29 @@ object TypeSystem {
     }
 
     val t = bodyTypes.last
+    val v = NodeMeta(t, None)
+
+    (Env(e3.archive.add(n, v), e.context), t)
+  }
+
+  private def check(e: Env, s: Scope, n: ast.While): (Env, Type) = {
+    val s1 = s.name + "_"
+    val newScope = s.copy(name = s1, level = s.level + 1)
+    val cetype = types.Var("Boolean")
+    val (e1, catype) = check(e, s, n.cond)
+
+    if (catype != cetype)
+      throw TypeError(s"${n.cond.pos}: Expected $cetype but found $catype")
+
+    val e2 = n.body.foldLeft(e1) { case (e, n) => collect(e, newScope, n) }
+
+    val (e3, bodyTypes) = n.body.foldLeft(e2, Seq[Type]()) {
+      case ((e, ts), n) =>
+        val (newEnv, t) = check(e, newScope, n)
+        (newEnv, ts :+ t)
+    }
+
+    val t = types.Var("Unit")
     val v = NodeMeta(t, None)
 
     (Env(e3.archive.add(n, v), e.context), t)

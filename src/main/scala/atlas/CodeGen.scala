@@ -41,6 +41,7 @@ object CodeGen {
     case n: ast.Else    => gen(n, e)
     case n: ast.Cons    => gen(n, e)
     case n: ast.Assign  => gen(n, e)
+    case n: ast.While   => gen(n, e)
     case n: ast.Subscript => gen(n, e)
     case others         => ???
   }
@@ -238,7 +239,8 @@ object CodeGen {
         (Seq(call, sstore), id1 + 1, Map((tpId, (id1 + 1).toString) -> name))
       case (_, types.List(_)) =>
         val (g, id) = genMemCopy(id1 + 1, s"%$id1", s"%$name", tpSt)
-        (g, id, Map((tpId, (id).toString) -> name))
+        val otherHeap = heap1.toSeq.init
+        (g, id, Map((tpId, (id).toString) -> name) ++ otherHeap.toMap)
       case primitiveType =>
         (Seq(s"store $tpSt %$id1, $tpSt* %$name"), id1, HeapStore())
     }
@@ -293,7 +295,8 @@ object CodeGen {
         (Seq(call, sstore), id1 + 1, Map((tpId, (id1 + 1).toString) -> name))
       case (_, types.List(_)) =>
         val (g, id) = genMemCopy(id1 + 1, s"%$id1", s"%$name", tpSt)
-        (g, id, Map((tpId, (id).toString) -> name))
+        val otherHeap = heap1.toSeq.init
+        (g, id, Map((tpId, (id).toString) -> name) ++ otherHeap.toMap)
       case primitiveType =>
         (Seq(s"store $tpSt %$id1, $tpSt* %$name"), id1, HeapStore())
     }
@@ -408,12 +411,13 @@ object CodeGen {
       (retGn :+ retTp, finalId)
     }
 
+    val paramNames = n.params.map(p => s"${p.name}${p.pos.row}${p.pos.col}")
+
     val (frees, heap2) = tp match {
       case struct if struct.startsWith("%struct.") =>
         val retHeap = (fnTp, id2.toString)
         val allHeap = heap1
-        val heapId = heap1.get(retHeap) getOrElse ""
-        val paramNames = n.params.map(p => s"${p.name}${p.pos.row}${p.pos.col}")
+        val heapId = allHeap.get(retHeap) getOrElse ""
         val heapSeq = allHeap.toSeq
           .filter { case ((tp, _), hid) => hid != heapId }
           .filterNot { case ((tp, _), hid) => paramNames contains hid }
@@ -426,7 +430,7 @@ object CodeGen {
         )
       case primitives =>
         val allHeap = heap1
-        val paramNames = n.params.map(p => s"${p.name}${p.pos.row}${p.pos.col}")
+
         val heapSeq = allHeap.toSeq
           .filterNot { case ((tp, _), hid) => paramNames contains hid }
           .map { case ((tp, _), hid) => (tp, hid) }
@@ -437,15 +441,15 @@ object CodeGen {
         )
     }
 
-    (lhsGen   ++
-     Seq(beg) ++
-     retAlloc ++
-     psAlloc  ++
-     psStore  ++
-     rhsGen   ++
-     frees.toSet ++
-     retRes   ++
-     Seq(end), id3, heap2)
+    val bodyRes = Seq(retAlloc, psAlloc, psStore, rhsGen, frees.toSet, retRes).flatten
+    val nameRegex = " *\\%[a-zA-Z]".r
+    val (namedAlloc, rest) = bodyRes.partition {
+      case s => nameRegex.findPrefixOf(s).mkString.nonEmpty
+    }
+    val sortedBody = namedAlloc ++ rest
+    val result = lhsGen ++ Seq(beg) ++ sortedBody ++ Seq(end)
+
+    (result, id3, heap2)
    }
 
   private def genCFnName(n: String, args: Seq[Type], retv: Type): String = {
@@ -1279,16 +1283,16 @@ object CodeGen {
     val frees = tp match {
       case struct if struct.startsWith("%struct.") =>
         val retHeap = (retTp, id2.toString)
-        val allHeap = heap1 ++ heap2 ++ heap3
+        val allHeap = heap1 ++ heap2
 
-        val heapId = heap1.get(retHeap) getOrElse ""
+        val heapId = allHeap.get(retHeap) getOrElse ""
         val heapSeq = allHeap.toSeq
           .filter { case ((tp, _), hid) => hid != heapId }
           .filter { case ((tp, _), hid) => allocNamesInScope contains hid }
           .map { case ((tp, _), hid) => (tp, hid) }
         heapSeq.map { case (th, h) => genFreeMemStruct(h, th) }
       case primitives =>
-        val allHeap = heap1
+        val allHeap = heap1 ++ heap2
         val heapSeq = allHeap.toSeq
           .filter { case ((tp, _), hid) => allocNamesInScope contains hid }
           .map { case ((tp, _), hid) => (tp, hid) }
@@ -1299,22 +1303,24 @@ object CodeGen {
       case struct if struct.startsWith("%struct.") =>
         val retHeap = (retTp, id2.toString)
         val allHeap = heap1 ++ heap2 ++ heap3
-        val heapId = heap1.get(retHeap) getOrElse ""
+        val heapId = allHeap.get(retHeap) getOrElse ""
         if (allocNamesInScope contains heapId)
-          Map(retHeap -> heapId)
+          Map((retTp, id4.toString) -> heapId)
         else
           HeapStore()
       case others =>
         HeapStore()
     }
 
+    println(stillNeedHeap)
+
     (Seq(alloc) ++
      (condGen :+ condBr) ++
      (bodyGen :+ bodyStore) ++
+     (frees.toSet) ++
      (Seq() :+ s"br label %$id3") ++
      (newIns.flatten) ++
-     (newRes) ++
-     frees.toSeq, id4, stillNeedHeap)
+     (newRes), id4, stillNeedHeap)
    }
 
   private def gen(n: ast.Elif, e: Env)
@@ -1344,25 +1350,27 @@ object CodeGen {
         val retHeap = (retTp, id2.toString)
         val allHeap = heap1 ++ heap2
 
-        val heapId = heap1.get(retHeap) getOrElse ""
+        val heapId = allHeap.get(retHeap) getOrElse ""
         val heapSeq = allHeap.toSeq
           .filter { case ((tp, _), hid) => hid != heapId }
           .filter { case ((tp, _), hid) => allocNamesInScope contains hid }
           .map { case ((tp, _), hid) => (tp, hid) }
         heapSeq.map { case (th, h) => genFreeMemStruct(h, th) }
       case primitives =>
-        val allHeap = heap1
+        val allHeap = heap1 ++ heap2
         val heapSeq = allHeap.toSeq
           .filter { case ((tp, _), hid) => allocNamesInScope contains hid }
           .map { case ((tp, _), hid) => (tp, hid) }
         heapSeq.map { case (th, h) => genFreeMemStruct(h, th) }
     }
 
+    println(frees)
+
     val stillNeedHeap: HeapStore = tp match {
       case struct if struct.startsWith("%struct.") =>
         val retHeap = (retTp, id2.toString)
         val allHeap = heap1 ++ heap2
-        val heapId = heap1.get(retHeap) getOrElse ""
+        val heapId = allHeap.get(retHeap) getOrElse ""
         if (allocNamesInScope contains heapId)
           Map(retHeap -> heapId)
         else
@@ -1371,7 +1379,7 @@ object CodeGen {
         HeapStore()
     }
 
-    ((condGen :+ condBr) ++ bodyGen ++ frees, id2, stillNeedHeap)
+    ((condGen :+ condBr) ++ bodyGen ++ frees.toSet, id2, stillNeedHeap)
    }
 
   private def gen(n: ast.Else, e: Env)
@@ -1397,7 +1405,7 @@ object CodeGen {
         val retHeap = (retTp, id2.toString)
         val allHeap = heap2
 
-        val heapId = heap2.get(retHeap) getOrElse ""
+        val heapId = allHeap.get(retHeap) getOrElse ""
         val heapSeq = allHeap.toSeq
           .filter { case ((tp, _), hid) => hid != heapId }
           .filter { case ((tp, _), hid) => allocNamesInScope contains hid }
@@ -1411,11 +1419,13 @@ object CodeGen {
         heapSeq.map { case (th, h) => genFreeMemStruct(h, th) }
     }
 
+    println(frees)
+
     val stillNeedHeap: HeapStore = tp match {
       case struct if struct.startsWith("%struct.") =>
         val retHeap = (retTp, id2.toString)
         val allHeap = heap2
-        val heapId = heap2.get(retHeap) getOrElse ""
+        val heapId = allHeap.get(retHeap) getOrElse ""
         if (allocNamesInScope contains heapId)
           Map(retHeap -> heapId)
         else
@@ -1424,8 +1434,41 @@ object CodeGen {
         HeapStore()
     }
 
-    (bodyGen ++ frees, id2, stillNeedHeap)
+    (bodyGen ++ frees.toSet, id2, stillNeedHeap)
    }
+
+  private def gen(n: ast.While, e: Env)
+   (implicit m: NodeMap): (Seq[String], Int, HeapStore) = {
+    val retTp = m.get(n).typeid
+    val tp = retTp.toLLVMType
+    val loopId = e.id
+    val loopBr = s"br label %$loopId"
+    val (condGen, id1, heap1) = gen(n.cond, e.copy(id = loopId + 1))
+    val bodyId = id1 + 1
+    val (bodyGen, ids, heap2) = n.body.generate(e.copy(id = bodyId + 1))
+    val id2 = ids.last
+    val lastId = id2 + 1
+    val condBr = s"br i1 %$id1, label %$bodyId, label %$lastId"
+
+    val allocNamesInScope = n.body.collect {
+      case n: ast.Let => s"${n.name}${n.pos.row}${n.pos.col}"
+      case n: ast.Mut => s"${n.name}${n.pos.row}${n.pos.col}"
+    }
+
+    val frees = {
+      val allHeap = heap1 ++ heap2
+      val heapSeq = allHeap.toSeq
+        .filter { case ((tp, _), hid) => allocNamesInScope contains hid }
+        .map { case ((tp, _), hid) => (tp, hid) }
+      heapSeq.map { case (th, h) => genFreeMemStruct(h, th) }
+    }
+
+    ( Seq(loopBr)         ++
+      (condGen :+ condBr) ++
+      bodyGen             ++
+      frees.toSet         ++
+      Seq(loopBr), lastId, Map())
+  }
 
   private implicit class LLVMTypeConverter(val t: Type) extends AnyVal {
     def toLLVMType = t match {

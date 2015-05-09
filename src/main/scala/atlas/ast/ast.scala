@@ -138,3 +138,12 @@ case class Assign(name: String, op: String, value: Node)
   (val pos: LinePos) extends Node {
   override def toString = s"mut $name = $value"
 }
+
+case class While(cond: Node, body: Seq[Node])
+  (val pos: LinePos) extends Node {
+  override def toString = {
+    val dent = "\n" + (" " * (1 + pos.col))
+    val str1 = body.mkString(dent)
+    (" " * (pos.col - 1)) + s"while $cond$dent$str1"
+  }
+}

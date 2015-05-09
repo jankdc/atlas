@@ -73,7 +73,8 @@ object Parser {
       parseStatic,
       parseAssign,
       parseFun,
-      parseCond)
+      parseCond,
+      parseWhile)
 
     parser(ts)
   }
@@ -102,6 +103,14 @@ object Parser {
 
     val (types, rs) = parser(ts)
     (Seq(ast.Type(types)(ts.head.pos)), rs)
+  }
+
+  private def parseWhile(ts: Seq[Token]): Result = {
+    val block = dlist(parseStmt)
+    val break = one("NewLine")
+    val parser = seq(key("while"), parseExpr, break, block)
+    val (Seq(cond, ast.List(body)), rs) = parser(ts)
+    (Seq(ast.While(cond, body)(ts.head.pos)), rs)
   }
 
   private def parseCond(ts: Seq[Token]): Result = {
