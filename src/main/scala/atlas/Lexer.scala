@@ -67,6 +67,7 @@ object Lexer {
     buffer += "(let)"
     buffer += "(true)"
     buffer += "(false)"
+    buffer += "(while)"
     buffer += "(fn)"
     buffer += "(if)"
     buffer += "(else)"
