@@ -2,14 +2,16 @@ static BIG_N: Int = 35
 static RANDOM_BOOLEAN: Boolean = false
 
 fn main(): Unit
-  println(make_list([Boolean](false, false, false)))
+  let even_list = filter_even_numbers([Int](2 ,  4, 5))
+  println(make_list([Boolean](false)))
 
 fn make_list(n: [Boolean]): [Boolean]
-  if false
+  if true
     let list = [Boolean](false, true)
     n
   elif true
     let list = [Boolean](false, true)
+    list
   else
     let list = [Boolean](false, true)
     list

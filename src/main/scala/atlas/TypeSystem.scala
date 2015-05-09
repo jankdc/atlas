@@ -149,8 +149,6 @@ object TypeSystem {
     val paramNames = n.params.map(p => p.name)
     val returnParm = returnsParam(n.body.last, paramNames)
 
-    println(n.name, returnParm, n.body.last)
-
     val bt = (n.body, ts).zipped.toList
      .filterNot { case (p, _) => p.isInstanceOf[ast.Fun] }
      .filterNot { case (p, _) => p.isInstanceOf[ast.Static] }

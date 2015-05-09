@@ -26,8 +26,8 @@ object Main {
        buildFnSym("len", Seq("[Boolean]")) -> types.Var("Int"))
 
   def main(args: Array[String]): Unit = {
-    debugCompiler(verbose = false)
-    // processCmd(args)
+    // debugCompiler(verbose = false)
+    processCmd(args)
   }
 
   private def debugCompiler(verbose: Boolean): Unit = try {
@@ -61,7 +61,7 @@ object Main {
 
     val path = "./bin/main"
     val output = new BufferedWriter(new FileWriter(new File(path + ".ll")))
-    val valgrind = "valgrind --leak-check=yes ./bin/main"
+    val valgrind = "valgrind --leak-check=full --track-origins=yes --show-reachable=yes ./bin/main"
     output.write(genString)
     output.close()
     (buildLLC(path + ".ll", path)   #&&
@@ -134,7 +134,7 @@ object Main {
   }
 
   private def buildLLC(src: String, dst: String): String =
-    s"llc -O3 -filetype=obj $src -o $dst.o"
+    s"llc -O2 -filetype=obj $src -o $dst.o"
 
   private def buildLinker(src: String, dst: String): String = {
     val arch = System.getProperty("os.arch")
