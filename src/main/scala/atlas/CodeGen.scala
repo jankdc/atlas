@@ -203,6 +203,7 @@ object CodeGen {
       case "/"   => s"sdiv $tp %${id1}, %${id2}"
       case "or"  => s"or $tp %${id1}, %${id2}"
       case "and" => s"and $tp %${id1}, %${id2}"
+      case "%"   => s"srem $tp %${id1}, %${id2}"
       case _ => ???
     }
 
@@ -548,13 +549,13 @@ object CodeGen {
     lenCode += "  ret i32 %1"
     lenCode += "}"
     lenCode += s"""define i32 @_len${"([Boolean])".hashCode}(%struct.VectorBoolean* %vector) {"""
-    lenCode += "  %1 = call i32 @_Z3lenP9VectorBoolean(%struct.VectorBoolean* %vector)"
+    lenCode += "  %1 = call i32 @_Z3lenP13VectorBoolean(%struct.VectorBoolean* %vector)"
     lenCode += "  ret i32 %1"
     lenCode += "}"
 
     val vectorCode = mutable.Buffer[String]()
-    vectorCode += "%struct.VectorInt = type { i32, i32, i32* }"
-    vectorCode += "%struct.VectorBoolean = type { i32, i32, i8* }"
+    vectorCode += """%struct.VectorBoolean = type { i32, i32, i8*, i8 }"""
+    vectorCode += """%struct.VectorInt = type { i32, i32, i32*, i8 }"""
     vectorCode += """@.str = private unnamed_addr constant [46 x i8] c"Index %d out of bounds for vector of size %d\0A\00", align 1"""
     vectorCode += """@.str1 = private unnamed_addr constant [2 x i8] c"[\00", align 1"""
     vectorCode += """@.str2 = private unnamed_addr constant [5 x i8] c"%d, \00", align 1"""
@@ -644,6 +645,15 @@ object CodeGen {
     vectorCode += "; <label>:27                                      ; preds = %9, %0"
     vectorCode += "  ret void"
     vectorCode += "}"
+    vectorCode += """  ; Function Attrs: nounwind ssp uwtable"""
+    vectorCode += """define void @_Z19vector_set_borrowedP9VectorInt(%struct.VectorInt* %vector) #3 {"""
+    vectorCode += """  %1 = alloca %struct.VectorInt*, align 8"""
+    vectorCode += """  store %struct.VectorInt* %vector, %struct.VectorInt** %1, align 8"""
+    vectorCode += """  %2 = load %struct.VectorInt** %1, align 8"""
+    vectorCode += """  %3 = getelementptr inbounds %struct.VectorInt* %2, i32 0, i32 3"""
+    vectorCode += """  store i8 1, i8* %3, align 1"""
+    vectorCode += """  ret void"""
+    vectorCode += """}"""
     vectorCode += "; Function Attrs: ssp uwtable"
     vectorCode += "define i32 @_Z10vector_getP9VectorInti(%struct.VectorInt* %vector, i32 %index) #1 {"
     vectorCode += "  %1 = alloca %struct.VectorInt*, align 8"
@@ -709,27 +719,37 @@ object CodeGen {
     vectorCode += "  store i32 %13, i32* %19, align 4"
     vectorCode += "  ret void"
     vectorCode += "}"
-    vectorCode += "; Function Attrs: ssp uwtable"
-    vectorCode += "define void @_Z11vector_freeP9VectorInt(%struct.VectorInt* %vector) #1 {"
-    vectorCode += "  %1 = alloca %struct.VectorInt*, align 8"
-    vectorCode += "  store %struct.VectorInt* %vector, %struct.VectorInt** %1, align 8"
-    vectorCode += "  %2 = load %struct.VectorInt** %1, align 8"
-    vectorCode += "  %3 = getelementptr inbounds %struct.VectorInt* %2, i32 0, i32 2"
-    vectorCode += "  %4 = load i32** %3, align 8"
-    vectorCode += "  %5 = icmp ne i32* %4, null"
-    vectorCode += "  br i1 %5, label %6, label %11"
-    vectorCode += "  "
-    vectorCode += "  ; <label>:6                                       ; preds = %0"
-    vectorCode += "  %7 = load %struct.VectorInt** %1, align 8"
-    vectorCode += "  %8 = getelementptr inbounds %struct.VectorInt* %7, i32 0, i32 2"
-    vectorCode += "  %9 = load i32** %8, align 8"
-    vectorCode += "  %10 = bitcast i32* %9 to i8*"
-    vectorCode += "  call void @free(i8* %10)"
-    vectorCode += "  br label %11"
-    vectorCode += "  "
-    vectorCode += "  ; <label>:11                                      ; preds = %6, %0"
-    vectorCode += "  ret void"
-    vectorCode += "}"
+    vectorCode += """  ; Function Attrs: ssp uwtable"""
+    vectorCode += """define void @_Z11vector_freeP9VectorInt(%struct.VectorInt* %vector) #0 {"""
+    vectorCode += """  %1 = alloca %struct.VectorInt*, align 8"""
+    vectorCode += """  store %struct.VectorInt* %vector, %struct.VectorInt** %1, align 8"""
+    vectorCode += """  %2 = load %struct.VectorInt** %1, align 8"""
+    vectorCode += """  %3 = getelementptr inbounds %struct.VectorInt* %2, i32 0, i32 2"""
+    vectorCode += """  %4 = load i32** %3, align 8"""
+    vectorCode += """  %5 = icmp ne i32* %4, null"""
+    vectorCode += """  br i1 %5, label %6, label %16"""
+    vectorCode += """  """
+    vectorCode += """  ; <label>:6                                       ; preds = %0"""
+    vectorCode += """  %7 = load %struct.VectorInt** %1, align 8"""
+    vectorCode += """  %8 = getelementptr inbounds %struct.VectorInt* %7, i32 0, i32 3"""
+    vectorCode += """  %9 = load i8* %8, align 1"""
+    vectorCode += """  %10 = trunc i8 %9 to i1"""
+    vectorCode += """  br i1 %10, label %16, label %11"""
+    vectorCode += """  """
+    vectorCode += """  ; <label>:11                                      ; preds = %6"""
+    vectorCode += """  %12 = load %struct.VectorInt** %1, align 8"""
+    vectorCode += """  %13 = getelementptr inbounds %struct.VectorInt* %12, i32 0, i32 2"""
+    vectorCode += """  %14 = load i32** %13, align 8"""
+    vectorCode += """  %15 = bitcast i32* %14 to i8*"""
+    vectorCode += """  call void @free(i8* %15)"""
+    vectorCode += """  br label %16"""
+    vectorCode += """  """
+    vectorCode += """  ; <label>:16                                      ; preds = %11, %6, %0"""
+    vectorCode += """  %17 = load %struct.VectorInt** %1, align 8"""
+    vectorCode += """  %18 = getelementptr inbounds %struct.VectorInt* %17, i32 0, i32 2"""
+    vectorCode += """  store i32* null, i32** %18, align 8"""
+    vectorCode += """  ret void"""
+    vectorCode += """}"""
     vectorCode += "; Function Attrs: ssp uwtable"
     vectorCode += "define void @_println-478497240(%struct.VectorInt* %vector) #1 {"
     vectorCode += "  %1 = alloca %struct.VectorInt*, align 8"
@@ -979,29 +999,36 @@ object CodeGen {
     vectorCode += "  store i8 %22, i8* %21, align 1"
     vectorCode += "  ret void"
     vectorCode += "}"
-    vectorCode += "; Function Attrs: ssp uwtable"
-    vectorCode += "define void @_Z11vector_freeP13VectorBoolean(%struct.VectorBoolean* %vector) #1 {"
-    vectorCode +="  %1 = alloca %struct.VectorBoolean*, align 8"
-    vectorCode +="  store %struct.VectorBoolean* %vector, %struct.VectorBoolean** %1, align 8"
-    vectorCode +="  %2 = load %struct.VectorBoolean** %1, align 8"
-    vectorCode +="  %3 = getelementptr inbounds %struct.VectorBoolean* %2, i32 0, i32 2"
-    vectorCode +="  %4 = load i8** %3, align 8"
-    vectorCode +="  %5 = icmp ne i8* %4, null"
-    vectorCode +="  br i1 %5, label %6, label %10"
-    vectorCode +="  "
-    vectorCode +="  ; <label>:6                                       ; preds = %0"
-    vectorCode +="  %7 = load %struct.VectorBoolean** %1, align 8"
-    vectorCode +="  %8 = getelementptr inbounds %struct.VectorBoolean* %7, i32 0, i32 2"
-    vectorCode +="  %9 = load i8** %8, align 8"
-    vectorCode +="  call void @free(i8* %9)"
-    vectorCode +="  br label %10"
-    vectorCode +="  "
-    vectorCode +="  ; <label>:10                                      ; preds = %6, %0"
-    vectorCode +="  %11 = load %struct.VectorBoolean** %1, align 8"
-    vectorCode +="  %12 = getelementptr inbounds %struct.VectorBoolean* %11, i32 0, i32 2"
-    vectorCode +="  store i8* null, i8** %12, align 8"
-    vectorCode +="  ret void"
-    vectorCode += "}"
+    vectorCode += """  ; Function Attrs: ssp uwtable"""
+    vectorCode += """define void @_Z11vector_freeP13VectorBoolean(%struct.VectorBoolean* %vector) #0 {"""
+    vectorCode += """  %1 = alloca %struct.VectorBoolean*, align 8"""
+    vectorCode += """  store %struct.VectorBoolean* %vector, %struct.VectorBoolean** %1, align 8"""
+    vectorCode += """  %2 = load %struct.VectorBoolean** %1, align 8"""
+    vectorCode += """  %3 = getelementptr inbounds %struct.VectorBoolean* %2, i32 0, i32 2"""
+    vectorCode += """  %4 = load i8** %3, align 8"""
+    vectorCode += """  %5 = icmp ne i8* %4, null"""
+    vectorCode += """  br i1 %5, label %6, label %15"""
+    vectorCode += """  """
+    vectorCode += """  ; <label>:6                                       ; preds = %0"""
+    vectorCode += """  %7 = load %struct.VectorBoolean** %1, align 8"""
+    vectorCode += """  %8 = getelementptr inbounds %struct.VectorBoolean* %7, i32 0, i32 3"""
+    vectorCode += """  %9 = load i8* %8, align 1"""
+    vectorCode += """  %10 = trunc i8 %9 to i1"""
+    vectorCode += """  br i1 %10, label %15, label %11"""
+    vectorCode += """  """
+    vectorCode += """  ; <label>:11                                      ; preds = %6"""
+    vectorCode += """  %12 = load %struct.VectorBoolean** %1, align 8"""
+    vectorCode += """  %13 = getelementptr inbounds %struct.VectorBoolean* %12, i32 0, i32 2"""
+    vectorCode += """  %14 = load i8** %13, align 8"""
+    vectorCode += """  call void @free(i8* %14)"""
+    vectorCode += """  br label %15"""
+    vectorCode += """  """
+    vectorCode += """  ; <label>:15                                      ; preds = %11, %6, %0"""
+    vectorCode += """  %16 = load %struct.VectorBoolean** %1, align 8"""
+    vectorCode += """  %17 = getelementptr inbounds %struct.VectorBoolean* %16, i32 0, i32 2"""
+    vectorCode += """  store i8* null, i8** %17, align 8"""
+    vectorCode += """  ret void"""
+    vectorCode += """}"""
     vectorCode += "; Function Attrs: ssp uwtable"
     vectorCode += "define void @_println200954273(%struct.VectorBoolean* %vector) #1 {"
     vectorCode += """  %1 = alloca %struct.VectorBoolean*, align 8"""
@@ -1084,14 +1111,24 @@ object CodeGen {
     vectorCode += """  %50 = call i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([3 x i8]* @.str4, i32 0, i32 0))"""
     vectorCode += """  ret void"""
     vectorCode += "}"
-    vectorCode += "define i32 @_Z3lenP9VectorBoolean(%struct.VectorBoolean* %vector) #0 {"
-    vectorCode += "  %1 = alloca %struct.VectorBoolean*, align 8"
-    vectorCode += "  store %struct.VectorBoolean* %vector, %struct.VectorBoolean** %1, align 8"
-    vectorCode += "  %2 = load %struct.VectorBoolean** %1, align 8"
-    vectorCode += "  %3 = getelementptr inbounds %struct.VectorBoolean* %2, i32 0, i32 0"
-    vectorCode += "  %4 = load i32* %3, align 4"
-    vectorCode += "  ret i32 %4"
-    vectorCode += "}"
+    vectorCode += """  ; Function Attrs: nounwind ssp uwtable"""
+    vectorCode += """define i32 @_Z3lenP13VectorBoolean(%struct.VectorBoolean* %vector) #3 {"""
+    vectorCode += """  %1 = alloca %struct.VectorBoolean*, align 8"""
+    vectorCode += """  store %struct.VectorBoolean* %vector, %struct.VectorBoolean** %1, align 8"""
+    vectorCode += """  %2 = load %struct.VectorBoolean** %1, align 8"""
+    vectorCode += """  %3 = getelementptr inbounds %struct.VectorBoolean* %2, i32 0, i32 0"""
+    vectorCode += """  %4 = load i32* %3, align 4"""
+    vectorCode += """  ret i32 %4"""
+    vectorCode += """}"""
+    vectorCode += """  ; Function Attrs: nounwind ssp uwtable"""
+    vectorCode += """define void @_Z19vector_set_borrowedP13VectorBoolean(%struct.VectorBoolean* %vector) #3 {"""
+    vectorCode += """  %1 = alloca %struct.VectorBoolean*, align 8"""
+    vectorCode += """  store %struct.VectorBoolean* %vector, %struct.VectorBoolean** %1, align 8"""
+    vectorCode += """  %2 = load %struct.VectorBoolean** %1, align 8"""
+    vectorCode += """  %3 = getelementptr inbounds %struct.VectorBoolean* %2, i32 0, i32 3"""
+    vectorCode += """  store i8 1, i8* %3, align 1"""
+    vectorCode += """  ret void"""
+    vectorCode += """}"""
     vectorCode += """; Function Attrs: ssp uwtable"""
     vectorCode += """define %struct.VectorBoolean @_Z11copy_vectorP13VectorBoolean(%struct.VectorBoolean* %vector) #1 {"""
     vectorCode += """  %1 = alloca %struct.VectorBoolean, align 8"""
@@ -1198,8 +1235,9 @@ object CodeGen {
         val (allocGen, id3, heap2) = genAllocStore(id2 + 1, s"%$id2", typeId)
         if (sym.returnsParam)
           (ps ++ callGen ++ allocGen, id3, heap1)
-        else
+        else {
           (ps ++ callGen ++ allocGen, id3, heap1 ++ Map((typeId, id3.toString) -> id3.toString))
+        }
       case _ =>
         (ps ++ callGen, id2, heap1)
     }
@@ -1313,10 +1351,26 @@ object CodeGen {
         HeapStore()
     }
 
+    val changeToBorrowed: String = tp match {
+      case struct if struct.startsWith("%struct.") =>
+        val retHeap = (retTp, id2.toString)
+        val allHeap = heap1 ++ heap2 ++ heap3
+        val heapId = allHeap.get(retHeap) getOrElse ""
+        if (! (allocNamesInScope contains heapId)) {
+          val fn = genCFnName("vector_set_borrowed", Seq(retTp), types.Var("Unit"))
+          s"call $fn($tp* %${e.id})"
+        }
+        else
+          ""
+      case others =>
+        ""
+    }
+
     (Seq(alloc) ++
      (condGen :+ condBr) ++
      (bodyGen :+ bodyStore) ++
      (frees.toSet) ++
+     Seq(changeToBorrowed) ++
      (Seq() :+ s"br label %$id3") ++
      (newIns.flatten) ++
      (newRes), id4, stillNeedHeap)
@@ -1376,7 +1430,22 @@ object CodeGen {
         HeapStore()
     }
 
-    ((condGen :+ condBr) ++ bodyGen ++ frees.toSet, id2, stillNeedHeap)
+    val changeToBorrowed: String = tp match {
+      case struct if struct.startsWith("%struct.") =>
+        val retHeap = (retTp, id2.toString)
+        val allHeap = heap1 ++ heap2
+        val heapId = allHeap.get(retHeap) getOrElse ""
+        if (! (allocNamesInScope contains heapId)) {
+          val fn = genCFnName("vector_set_borrowed", Seq(retTp), types.Var("Unit"))
+          s"call $fn($tp* %1)"
+        }
+        else
+          ""
+      case others =>
+        ""
+    }
+
+    ((condGen :+ condBr) ++ bodyGen ++ frees.toSet ++ Seq(changeToBorrowed), id2, stillNeedHeap)
    }
 
   private def gen(n: ast.Else, e: Env)
@@ -1429,7 +1498,22 @@ object CodeGen {
         HeapStore()
     }
 
-    (bodyGen ++ frees.toSet, id2, stillNeedHeap)
+    val changeToBorrowed: String = tp match {
+      case struct if struct.startsWith("%struct.") =>
+        val retHeap = (retTp, id2.toString)
+        val allHeap = heap2
+        val heapId = allHeap.get(retHeap) getOrElse ""
+        if (! (allocNamesInScope contains heapId)) {
+          val fn = genCFnName("vector_set_borrowed", Seq(retTp), types.Var("Unit"))
+          s"call $fn($tp* %1)"
+        }
+        else
+          ""
+      case others =>
+        ""
+    }
+
+    (bodyGen ++ frees.toSet ++ Seq(changeToBorrowed), id2, stillNeedHeap)
    }
 
   private def gen(n: ast.While, e: Env)

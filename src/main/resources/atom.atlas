@@ -2,25 +2,14 @@ static BIG_N: Int = 35
 static RANDOM_BOOLEAN: Boolean = false
 
 fn main(): Unit
-  let mut leak = make_list([Boolean](false))
-  let mut some_number = 32
-  while some_number > 0
-    leak += true
-    some_number = some_number - 1
-
-  for i = 2 to fibo(10)
-    println(i)
-
-  pass
-  pass
+  println(make_list([Boolean](false, false, false)))
 
 fn make_list(n: [Boolean]): [Boolean]
-  if true
+  if false
     let list = [Boolean](false, true)
     n
   elif true
     let list = [Boolean](false, true)
-    list
   else
     let list = [Boolean](false, true)
     list
@@ -48,3 +37,21 @@ fn isSame(n: Int, m: Int): Boolean
 
 fn isSame(n: Boolean, m: Boolean): Boolean
   n == m
+
+fn fibonacci(n: Int): [Int]
+  let mut list = [Int](0, 1)
+
+  for i = 2 to n
+    list += list[i - 1] + list[i - 2]
+
+  list
+
+
+fn filter_even_numbers(list: [Int]): [Int]
+  let mut new_list = [Int]()
+
+  for i = 0 to len(list)
+    if (list[i] % 2 == 0)
+      new_list += list[i]
+
+  new_list

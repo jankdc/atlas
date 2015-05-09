@@ -48,6 +48,7 @@ object PartialEvaluator {
             case "-"  => ast.Integer(l - r)(n.pos)
             case "/"  => ast.Integer(l / r)(n.pos)
             case "*"  => ast.Integer(l * r)(n.pos)
+            case "%"  => ast.Integer(l % r)(n.pos)
             case "==" => ast.Boolean(l == r)(n.pos)
             case "!=" => ast.Boolean(l != r)(n.pos)
             case ">"  => ast.Boolean(l > r)(n.pos)

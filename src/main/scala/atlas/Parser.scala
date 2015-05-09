@@ -433,6 +433,7 @@ object Parser {
     ("<=" -> 40),
     (">=" -> 40),
     ("*"  -> 50),
+    ("%"  -> 50),
     ("/"  -> 50))
 
   private def sortExpr(s: Seq[Node], n: Node, m: Int): (Node, Seq[Node]) =
