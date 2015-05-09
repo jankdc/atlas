@@ -74,7 +74,8 @@ object Parser {
       parseAssign,
       parseFun,
       parseCond,
-      parseWhile)
+      parseWhile,
+      parseFor)
 
     parser(ts)
   }
@@ -111,6 +112,24 @@ object Parser {
     val parser = seq(key("while"), parseExpr, break, block)
     val (Seq(cond, ast.List(body)), rs) = parser(ts)
     (Seq(ast.While(cond, body)(ts.head.pos)), rs)
+  }
+
+  private def parseFor(ts: Seq[Token]): Result = {
+    val block = dlist(parseStmt)
+    val name = one("NamedId")
+    val break = one("NewLine")
+    val parser = seq(
+      key("for"),
+      name,
+      key("="),
+      parseExpr,
+      key("to"),
+      parseExpr,
+      break,
+      block)
+
+    val (Seq(ast.NamedId(nm), _, from, to, ast.List(body)), rs) = parser(ts)
+    (Seq(ast.For(nm, from, to, body)(ts.head.pos)), rs)
   }
 
   private def parseCond(ts: Seq[Token]): Result = {

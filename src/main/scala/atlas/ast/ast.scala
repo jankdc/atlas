@@ -147,3 +147,12 @@ case class While(cond: Node, body: Seq[Node])
     (" " * (pos.col - 1)) + s"while $cond$dent$str1"
   }
 }
+
+case class For(name: String, from: Node, to: Node, body: Seq[Node])
+  (val pos: LinePos) extends Node {
+  override def toString = {
+    val dent = "\n" + (" " * (1 + pos.col))
+    val str1 = body.mkString(dent)
+    (" " * (pos.col - 1)) + s"for $name = $from to $to$dent$str1"
+  }
+}

@@ -16,6 +16,11 @@ object PartialEvaluator {
     case n: ast.Static  => n.copy(value = partEval(n.value))(n.pos)
     case n: ast.Cons    => n.copy(args = n.args.map(partEval))(n.pos)
     case n: ast.Subscript => n.copy(arg = partEval(n.arg))(n.pos)
+    case n: ast.For     => ast.For(n.name,
+        partEval(n.from),
+        partEval(n.to),
+        n.body.map(partEval)
+      )(n.pos)
     case n: ast.While   => ast.While(
         partEval(n.cond),
         n.body.map(partEval)

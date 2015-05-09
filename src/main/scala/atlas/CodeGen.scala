@@ -42,6 +42,7 @@ object CodeGen {
     case n: ast.Cons    => gen(n, e)
     case n: ast.Assign  => gen(n, e)
     case n: ast.While   => gen(n, e)
+    case n: ast.For     => gen(n, e)
     case n: ast.Subscript => gen(n, e)
     case others         => ???
   }
@@ -1312,8 +1313,6 @@ object CodeGen {
         HeapStore()
     }
 
-    println(stillNeedHeap)
-
     (Seq(alloc) ++
      (condGen :+ condBr) ++
      (bodyGen :+ bodyStore) ++
@@ -1363,8 +1362,6 @@ object CodeGen {
           .map { case ((tp, _), hid) => (tp, hid) }
         heapSeq.map { case (th, h) => genFreeMemStruct(h, th) }
     }
-
-    println(frees)
 
     val stillNeedHeap: HeapStore = tp match {
       case struct if struct.startsWith("%struct.") =>
@@ -1419,8 +1416,6 @@ object CodeGen {
         heapSeq.map { case (th, h) => genFreeMemStruct(h, th) }
     }
 
-    println(frees)
-
     val stillNeedHeap: HeapStore = tp match {
       case struct if struct.startsWith("%struct.") =>
         val retHeap = (retTp, id2.toString)
@@ -1467,6 +1462,67 @@ object CodeGen {
       (condGen :+ condBr) ++
       bodyGen             ++
       frees.toSet         ++
+      Seq(loopBr), lastId, Map())
+  }
+
+  private def gen(n: ast.For, e: Env)
+   (implicit m: NodeMap): (Seq[String], Int, HeapStore) = {
+    val retTp = m.get(n).typeid
+    val tp = retTp.toLLVMType
+    val it = s"${n.name}${n.pos.row}${n.pos.col}"
+    val iter = s"%$it = alloca i32"
+    val (fromGen, id1, heap1) = gen(n.from, e)
+    val storeIt = s"store i32 %$id1, i32* %$it"
+    val loopId = id1 + 1
+    val loopBr = s"br label %$loopId"
+    val (toGen  , id2, heap2) = gen(n.to, e.copy(id = loopId + 1))
+    val id3 = id2 + 1
+    val id4 = id3 + 1
+    val id5 = id4 + 1
+
+    val loadIt = s"%$id3 = load i32* %$it"
+    val loadTo = s"%$id4 = add nsw i32 %$id2, 0"
+    val cmp = s"%$id5 = icmp slt i32 %$id3, %$id4"
+    val cmpGen = Seq(loadIt, loadTo, cmp)
+
+    val bodyId = id5 + 1
+    val (bodyGen, ids, heap3) = n.body.generate(e.copy(id = bodyId + 1))
+    val id6 = ids.last
+    val id7 = id6 + 1
+    val bodyBr = s"br label %$id7"
+    val id8 = id7 + 1
+
+    val load = s"%$id7 = load i32* %$it"
+    val addi = s"%$id8 = add nsw i32 %$id7, 1"
+    val stor = s"store i32 %$id8, i32* %$it"
+    val incr = Seq(load, addi, stor)
+
+    val lastId = id8 + 1
+    val condBr = s"br i1 %$id5, label %$bodyId, label %$lastId"
+
+    val allocNamesInScope = n.body.collect {
+      case n: ast.Let => s"${n.name}${n.pos.row}${n.pos.col}"
+      case n: ast.Mut => s"${n.name}${n.pos.row}${n.pos.col}"
+    }
+
+    val frees = {
+      val allHeap = heap1 ++ heap2 ++ heap3
+      val heapSeq = allHeap.toSeq
+        .filter { case ((tp, _), hid) => allocNamesInScope contains hid }
+        .map { case ((tp, _), hid) => (tp, hid) }
+      heapSeq.map { case (th, h) => genFreeMemStruct(h, th) }
+    }
+
+    ( Seq(iter) ++
+      fromGen      ++
+      Seq(storeIt) ++
+      Seq(loopBr)  ++
+      toGen        ++
+      cmpGen       ++
+      Seq(condBr)  ++
+      bodyGen      ++
+      frees.toSet  ++
+      incr         ++
       Seq(loopBr), lastId, Map())
   }
 

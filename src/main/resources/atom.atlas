@@ -8,7 +8,9 @@ fn main(): Unit
     leak += true
     some_number = some_number - 1
 
-  println(leak)
+  for i = 2 to fibo(10)
+    println(i)
+
   pass
   pass
 

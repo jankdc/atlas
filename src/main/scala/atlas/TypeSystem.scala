@@ -30,6 +30,7 @@ object TypeSystem {
     case n: ast.Else    => check(e, s, n)
     case n: ast.While   => check(e, s, n)
     case n: ast.Cons    => check(e, s, n)
+    case n: ast.For     => check(e, s, n)
     case n: ast.Assign  => check(e, s, n)
     case n: ast.Subscript => check(e, s, n)
     case others         => ???
@@ -71,6 +72,32 @@ object TypeSystem {
     val v = NodeMeta(types.Var("Unit"), Some(sm))
 
     ((Env(e1.archive.add(n, v), c)), types.Var("Unit"))
+  }
+
+  private def check(e: Env, s: Scope, n: ast.For): (Env, Type) = {
+    val sn = s.name + n.name + "_"
+    val newScope = s.copy(name = sn, level = s.level + 1)
+    val sm = Symbol(s.name, n.name)(n.pos, false, true, s.level)
+    val (e1, ft) = check(e, s.copy(name = sn),  n.from)
+    val (e2, tt) = check(e1, s.copy(name = sn), n.to)
+    val intTp = types.Var("Int")
+
+    if (ft != intTp)
+      throw TypeError(s"${n.from.pos}: Expected $intTp but found $ft")
+
+    if (tt != intTp)
+      throw TypeError(s"${n.to.pos}: Expected $intTp but found $tt")
+
+    val c = e1.context.addDef(sm, intTp)
+    val v = NodeMeta(types.Var("Unit"), Some(sm))
+
+    val (e3, bodyTypes) = n.body.foldLeft(e2.copy(context=c), Seq[Type]()) {
+      case ((e, ts), n) =>
+        val (newEnv, t) = check(e, newScope, n)
+        (newEnv, ts :+ t)
+    }
+
+    (Env(e3.archive.add(n, v), e.context), types.Var("Unit"))
   }
 
   private def check(e: Env, s: Scope, n: ast.Assign): (Env, Type) = {
