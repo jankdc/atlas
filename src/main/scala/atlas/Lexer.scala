@@ -68,11 +68,12 @@ object Lexer {
     buffer += "(true)"
     buffer += "(false)"
     buffer += "(while)"
+    buffer += "(for)"
+    buffer += "(to)"
     buffer += "(fn)"
     buffer += "(if)"
     buffer += "(else)"
     buffer += "(elif)"
-    buffer += "(as)"
     buffer += "(or)"
     buffer += "(and)"
     buffer += "(\\()"
@@ -91,7 +92,6 @@ object Lexer {
     buffer += "(<)"
     buffer += "(>)"
     buffer += "(!)"
-    buffer += "(_)"
     buffer += "([+-/*])"
     buffer.mkString("|").r
   }
