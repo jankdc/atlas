@@ -1387,16 +1387,20 @@ object CodeGen {
         val heapId = allHeap.get(retHeap) getOrElse ""
         val heapSeq = allHeap.toSeq
           .filter { case ((tp, _), hid) => hid != heapId }
-          .filter { case ((tp, _), hid) => allocNamesInScope contains hid }
+          .filter { case ((tp, nn), hid) =>
+              (allocNamesInScope contains hid) || nn == hid }
           .map { case ((tp, _), hid) => (tp, hid) }
         heapSeq.map { case (th, h) => genFreeMemStruct(e, h, th) }
       case primitives =>
         val allHeap = heap1 ++ heap2
         val heapSeq = allHeap.toSeq
-          .filter { case ((tp, _), hid) => allocNamesInScope contains hid }
+          .filter { case ((tp, nn), hid) =>
+              (allocNamesInScope contains hid) || nn == hid }
           .map { case ((tp, _), hid) => (tp, hid) }
         heapSeq.map { case (th, h) => genFreeMemStruct(e, h, th) }
     }
+
+    println(heap1 ++ heap2)
 
     val stillNeedHeap: HeapStore = tp match {
       case struct if struct.startsWith("%struct.") =>
@@ -1466,13 +1470,15 @@ object CodeGen {
         val heapId = allHeap.get(retHeap) getOrElse ""
         val heapSeq = allHeap.toSeq
           .filter { case ((tp, _), hid) => hid != heapId }
-          .filter { case ((tp, _), hid) => allocNamesInScope contains hid }
+          .filter { case ((tp, nn), hid) =>
+              (allocNamesInScope contains hid) || nn == hid }
           .map { case ((tp, _), hid) => (tp, hid) }
         heapSeq.map { case (th, h) => genFreeMemStruct(e, h, th) }
       case primitives =>
         val allHeap = heap1 ++ heap2
         val heapSeq = allHeap.toSeq
-          .filter { case ((tp, _), hid) => allocNamesInScope contains hid }
+          .filter { case ((tp, nn), hid) =>
+              (allocNamesInScope contains hid) || nn == hid }
           .map { case ((tp, _), hid) => (tp, hid) }
         heapSeq.map { case (th, h) => genFreeMemStruct(e, h, th) }
     }
@@ -1534,13 +1540,15 @@ object CodeGen {
         val heapId = allHeap.get(retHeap) getOrElse ""
         val heapSeq = allHeap.toSeq
           .filter { case ((tp, _), hid) => hid != heapId }
-          .filter { case ((tp, _), hid) => allocNamesInScope contains hid }
+          .filter { case ((tp, nn), hid) =>
+              (allocNamesInScope contains hid) || nn == hid }
           .map { case ((tp, _), hid) => (tp, hid) }
         heapSeq.map { case (th, h) => genFreeMemStruct(e, h, th) }
       case primitives =>
         val allHeap = heap2
         val heapSeq = allHeap.toSeq
-          .filter { case ((tp, _), hid) => allocNamesInScope contains hid }
+          .filter { case ((tp, nn), hid) =>
+              (allocNamesInScope contains hid) || nn == hid }
           .map { case ((tp, _), hid) => (tp, hid) }
         heapSeq.map { case (th, h) => genFreeMemStruct(e, h, th) }
     }
