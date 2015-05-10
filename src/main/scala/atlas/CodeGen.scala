@@ -16,11 +16,11 @@ object CodeGen {
   private def HeapStore(): HeapStore =
     Map[HeapItem, String]()
 
-  case class Env(id: Int, store: Store)
+  case class Env(id: Int, store: Store, debugMode: Boolean)
 
-  def genLLVM(n: Node)
+  def genLLVM(n: Node, debugMode: Boolean = false)
    (implicit m: NodeMap): Seq[String] =
-    gen(n, Env(1, Map())) match { case (s, _, _) => s }
+    gen(n, Env(1, Map(), debugMode)) match { case (s, _, _) => s }
 
   private def gen(n: Node, e: Env)
    (implicit m: NodeMap): (Seq[String], Int, HeapStore) = n match {
@@ -91,10 +91,19 @@ object CodeGen {
     val appSign = genCFnName("vector_append", Seq(tp, vtp), types.Var("Unit"))
     val appGn = ids.map(id => s"call $appSign($tpStr* %$id1, $vtpStr %$id)")
 
+    val hash = s"(${tp.toString})".hashCode
+    val printAlloc =
+      if (e.debugMode) {
+        Seq(s"  call void @__debugAlloc$hash($tpStr* %$id1)")
+      } else {
+        Seq("")
+      }
+
     (argGen ++
      Seq(alloc) ++
      Seq(initg) ++
-     appGn, id1, heap1 ++ Map((tp -> (id1).toString) -> (id1).toString))
+     appGn      ++
+     printAlloc, id1, heap1 ++ Map((tp -> (id1).toString) -> (id1).toString))
    }
 
   private def gen(n: ast.Subscript, e: Env)
@@ -275,12 +284,23 @@ object CodeGen {
     (Seq(srcCast, dstCast, memCopy), id2)
   }
 
-  private def genFreeMemStruct(id: String, tp: Type): String = {
+  private def genFreeMemStruct(e: Env, id: String, tp: Type): String = {
     val sign = genCFnName("vector_free", Seq(tp), types.Var("Unit"))
-    tp match {
+    val hash = s"(${tp.toString})".hashCode
+    val tpId = tp.toLLVMType
+
+    val printDlloc = if (e.debugMode) {
+      Seq(s"  call void @__debugDlloc$hash($tpId* %$id)")
+    } else {
+      Seq("")
+    }
+
+    val free = tp match {
       case types.List(_) => s"  call $sign(${tp.toLLVMType}* %$id)"
       case _ => s"  call $sign(%${tp.toLLVMType}* %$id)"
     }
+
+    (printDlloc :+ free).mkString("\n")
   }
 
   private def gen(n: ast.Mut, e: Env)
@@ -386,7 +406,7 @@ object CodeGen {
       id1 - 1,
       HeapStore()) {
       case ((ss, id, hh), nn) =>
-        val (g, newId, h) = gen(nn, Env(id + 1, psMap))
+        val (g, newId, h) = gen(nn, Env(id + 1, psMap, e.debugMode))
         (ss ++ g.map("  " ++ _), newId, hh ++ h)
     }
 
@@ -430,7 +450,7 @@ object CodeGen {
 
 
         (
-          heapSeq.map { case (th, h) => genFreeMemStruct(h, th) },
+          heapSeq.map { case (th, h) => genFreeMemStruct(e, h, th) },
           HeapStore()
         )
       case primitives =>
@@ -441,7 +461,7 @@ object CodeGen {
           .map { case ((tp, _), hid) => (tp, hid) }
 
         (
-          heapSeq.map { case (th, h) => genFreeMemStruct(h, th) },
+          heapSeq.map { case (th, h) => genFreeMemStruct(e, h, th) },
           HeapStore()
         )
     }
@@ -517,6 +537,8 @@ object CodeGen {
     strConst += """@.str-num = private unnamed_addr constant [4 x i8] c"%d\0A\00", align 1"""
     strConst += """@.str-true = private unnamed_addr constant [6 x i8] c"true\0A\00", align 1"""
     strConst += """@.str-false = private unnamed_addr constant [7 x i8] c"false\0A\00", align 1"""
+    strConst += """@.str-alloc = private unnamed_addr constant [27 x i8] c"New allocation of size %d\0A\00", align 1"""
+    strConst += """@.str-dlloc = private unnamed_addr constant [26 x i8] c"De-allocation of size %d\0A\00", align 1"""
 
     val cinterface = mutable.Buffer[String]()
     cinterface += """declare i32 @printf(i8*, ...)"""
@@ -545,6 +567,32 @@ object CodeGen {
     printlnCode += "join:"
     printlnCode += "  ret void"
     printlnCode += "}"
+
+    val debugCode = mutable.Buffer[String]()
+    debugCode += s"""define void @__debugAlloc${"([Int])".hashCode}(%struct.VectorInt* %vector) {"""
+    debugCode += "entry:"
+    debugCode += s"""  %0 = call i32 @_len${"([Int])".hashCode}(%struct.VectorInt* %vector)"""
+    debugCode += s"""  %1 = call i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([27 x i8]* @.str-alloc, i32 0, i32 0), i32 %0)"""
+    debugCode += s"""  ret void"""
+    debugCode += "}"
+    debugCode += s"""define void @__debugDlloc${"([Int])".hashCode}(%struct.VectorInt* %vector) {"""
+    debugCode += "entry:"
+    debugCode += s"""  %0 = call i32 @_len${"([Int])".hashCode}(%struct.VectorInt* %vector)"""
+    debugCode += s"""  %1 = call i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([26 x i8]* @.str-dlloc, i32 0, i32 0), i32 %0)"""
+    debugCode += s"""  ret void"""
+    debugCode += "}"
+    debugCode += s"""define void @__debugAlloc${"([Boolean])".hashCode}(%struct.VectorBoolean* %vector) {"""
+    debugCode += "entry:"
+    debugCode += s"""  %0 = call i32 @_len${"([Boolean])".hashCode}(%struct.VectorBoolean* %vector)"""
+    debugCode += s"""  %1 = call i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([27 x i8]* @.str-alloc, i32 0, i32 0), i32 %0)"""
+    debugCode += s"""  ret void"""
+    debugCode += "}"
+    debugCode += s"""define void @__debugDlloc${"([Boolean])".hashCode}(%struct.VectorBoolean* %vector) {"""
+    debugCode += "entry:"
+    debugCode += s"""  %0 = call i32 @_len${"([Boolean])".hashCode}(%struct.VectorBoolean* %vector)"""
+    debugCode += s"""  %1 = call i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([26 x i8]* @.str-dlloc, i32 0, i32 0), i32 %0)"""
+    debugCode += s"""  ret void"""
+    debugCode += "}"
 
     val lenCode = mutable.Buffer[String]()
     lenCode += s"""define i32 @_len${"([Int])".hashCode}(%struct.VectorInt* %vector) {"""
@@ -1198,6 +1246,7 @@ object CodeGen {
       printlnCode.toSeq               ++
       lenCode.toSeq                   ++
       vectorCode.toSeq                ++
+      debugCode.toSeq                 ++
       cinterface.toSeq
 
     (genRes, e.id, Map())
@@ -1340,13 +1389,13 @@ object CodeGen {
           .filter { case ((tp, _), hid) => hid != heapId }
           .filter { case ((tp, _), hid) => allocNamesInScope contains hid }
           .map { case ((tp, _), hid) => (tp, hid) }
-        heapSeq.map { case (th, h) => genFreeMemStruct(h, th) }
+        heapSeq.map { case (th, h) => genFreeMemStruct(e, h, th) }
       case primitives =>
         val allHeap = heap1 ++ heap2
         val heapSeq = allHeap.toSeq
           .filter { case ((tp, _), hid) => allocNamesInScope contains hid }
           .map { case ((tp, _), hid) => (tp, hid) }
-        heapSeq.map { case (th, h) => genFreeMemStruct(h, th) }
+        heapSeq.map { case (th, h) => genFreeMemStruct(e, h, th) }
     }
 
     val stillNeedHeap: HeapStore = tp match {
@@ -1419,13 +1468,13 @@ object CodeGen {
           .filter { case ((tp, _), hid) => hid != heapId }
           .filter { case ((tp, _), hid) => allocNamesInScope contains hid }
           .map { case ((tp, _), hid) => (tp, hid) }
-        heapSeq.map { case (th, h) => genFreeMemStruct(h, th) }
+        heapSeq.map { case (th, h) => genFreeMemStruct(e, h, th) }
       case primitives =>
         val allHeap = heap1 ++ heap2
         val heapSeq = allHeap.toSeq
           .filter { case ((tp, _), hid) => allocNamesInScope contains hid }
           .map { case ((tp, _), hid) => (tp, hid) }
-        heapSeq.map { case (th, h) => genFreeMemStruct(h, th) }
+        heapSeq.map { case (th, h) => genFreeMemStruct(e, h, th) }
     }
 
     val stillNeedHeap: HeapStore = tp match {
@@ -1487,13 +1536,13 @@ object CodeGen {
           .filter { case ((tp, _), hid) => hid != heapId }
           .filter { case ((tp, _), hid) => allocNamesInScope contains hid }
           .map { case ((tp, _), hid) => (tp, hid) }
-        heapSeq.map { case (th, h) => genFreeMemStruct(h, th) }
+        heapSeq.map { case (th, h) => genFreeMemStruct(e, h, th) }
       case primitives =>
         val allHeap = heap2
         val heapSeq = allHeap.toSeq
           .filter { case ((tp, _), hid) => allocNamesInScope contains hid }
           .map { case ((tp, _), hid) => (tp, hid) }
-        heapSeq.map { case (th, h) => genFreeMemStruct(h, th) }
+        heapSeq.map { case (th, h) => genFreeMemStruct(e, h, th) }
     }
 
     val stillNeedHeap: HeapStore = tp match {
@@ -1550,7 +1599,7 @@ object CodeGen {
       val heapSeq = allHeap.toSeq
         .filter { case ((tp, _), hid) => allocNamesInScope contains hid }
         .map { case ((tp, _), hid) => (tp, hid) }
-      heapSeq.map { case (th, h) => genFreeMemStruct(h, th) }
+      heapSeq.map { case (th, h) => genFreeMemStruct(e, h, th) }
     }
 
     ( Seq(loopBr)         ++
@@ -1605,7 +1654,7 @@ object CodeGen {
       val heapSeq = allHeap.toSeq
         .filter { case ((tp, _), hid) => allocNamesInScope contains hid }
         .map { case ((tp, _), hid) => (tp, hid) }
-      heapSeq.map { case (th, h) => genFreeMemStruct(h, th) }
+      heapSeq.map { case (th, h) => genFreeMemStruct(e, h, th) }
     }
 
     ( Seq(iter) ++

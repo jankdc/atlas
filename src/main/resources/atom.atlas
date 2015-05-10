@@ -2,8 +2,8 @@ static BIG_N: Int = 35
 static RANDOM_BOOLEAN: Boolean = false
 
 fn main(): Unit
-  let even_list = filter_even_numbers([Int](2 ,  4, 5))
-  println(make_list([Boolean](false)))
+  let even_list = filter_even_numbers([Int](2, 4, 5))
+  # println(make_list([Boolean](false)))
 
 fn make_list(n: [Boolean]): [Boolean]
   if true
