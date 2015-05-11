@@ -31,8 +31,8 @@ object Main {
        buildFnSym("len", Seq("[Boolean]")) -> types.Var("Int"))
 
   def main(args: Array[String]): Unit = {
-    debugCompiler(verbose = false)
-    // processCmd(args)
+    // debugCompiler(verbose = false)
+    processCmd(args)
   }
 
   private def debugCompiler(verbose: Boolean): Unit = try {
