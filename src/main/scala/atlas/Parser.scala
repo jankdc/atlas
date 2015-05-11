@@ -72,6 +72,7 @@ object Parser {
       parseMut,
       parseStatic,
       parseAssign,
+      parseAssignSub,
       parseFun,
       parseCond,
       parseWhile,
@@ -201,6 +202,15 @@ object Parser {
     val parser  = seq(name, assign, parseExpr, newline)
     val (Seq(ast.NamedId(nm), ast.Operator(op), rv), rm) = parser(ts)
     (Seq(ast.Assign(nm, op, rv)(ts.head.pos)), rm)
+  }
+
+  private def parseAssignSub(ts: Seq[Token]): Result = {
+    val name    = one("NamedId")
+    val assign  = any("an assignable operator", key("="))
+    val newline = one("NewLine")
+    val parser  = seq(name, key("["), parseExpr, key("]"), assign, parseExpr, newline)
+    val (Seq(ast.NamedId(nm), index, ast.Operator(op), rv), rm) = parser(ts)
+    (Seq(ast.AssignSub(nm, index, op, rv)(ts.head.pos)), rm)
   }
 
   private def parseExpr(ts: Seq[Token]): Result = {

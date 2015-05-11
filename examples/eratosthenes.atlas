@@ -1,3 +1,10 @@
+# This is a failed attempt in making Sieve of Eratosthenes. However
+# I'm proud that no memory leaks have occured!
+
+fn main(): Unit
+  let primes = primes_sieve(100)
+  println(primes)
+
 fn primes_sieve(limit: Int): [Int]
   if limit < 2
     [Int](1, 2)
@@ -19,8 +26,8 @@ fn primes_sieve(limit: Int): [Int]
           a[j] = false
     b
 
-fn make_list(n: Int, v: Boolean):
-  let new_list = [Boolean]()
+fn make_list(n: Int, v: Boolean): [Boolean]
+  let mut new_list = [Boolean]()
 
   for i = 0 to n
     new_list += v

@@ -156,3 +156,8 @@ case class For(name: String, from: Node, to: Node, body: Seq[Node])
     (" " * (pos.col - 1)) + s"for $name = $from to $to$dent$str1"
   }
 }
+
+case class AssignSub(name: String, index: Node, op: String, value: Node)
+ (val pos: LinePos) extends Node {
+  override def toString = s"$name[$index] $op $value"
+}

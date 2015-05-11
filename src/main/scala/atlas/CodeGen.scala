@@ -44,6 +44,7 @@ object CodeGen {
     case n: ast.While   => gen(n, e)
     case n: ast.For     => gen(n, e)
     case n: ast.Subscript => gen(n, e)
+    case n: ast.AssignSub => gen(n, e)
     case others         => ???
   }
 
@@ -168,6 +169,31 @@ object CodeGen {
     }
 
     (valueGen ++ extraGen, id2, heap1 ++ heap2)
+  }
+
+  private def gen(n: ast.AssignSub, e: Env)
+   (implicit m: NodeMap): (Seq[String], Int, HeapStore) = {
+    val NodeMeta(symTp, Some(sym)) = m.get(n)
+    val (indexGen, id1, heap1) = gen(n.index, e)
+    val (valueGen, id2, heap2) = gen(n.value, e.copy(id = id1 + 1))
+    val indTp = m.get(n.index).typeid
+    val valTp = m.get(n.value).typeid
+    val tp = valTp.toLLVMType
+    val nm = getStoreName(e.store, sym)
+
+    val (extraGen, id3, heap3) = (indTp, n.op, valTp) match {
+      case (_, "=", _) =>
+        val lstTp = types.List(valTp)
+        val name = genCFnName("vector_set", Seq(lstTp, indTp, valTp), types.Var("Unit"))
+        val stpId = s"${lstTp.toLLVMType}*"
+        val indId = s"${indTp.toLLVMType}"
+        val vtpId = s"${valTp.toLLVMType}"
+        val call = s"call $name($stpId $nm, $indId %$id1, $vtpId %$id2)"
+        (Seq(call), id2, HeapStore())
+      case (_, _, _) => ???
+    }
+
+    (indexGen ++ valueGen ++ extraGen, id3, heap1 ++ heap2 ++ heap3)
   }
 
   private def getStoreName(store: Store, sym: Symbol): String = {

@@ -32,6 +32,7 @@ object TypeSystem {
     case n: ast.Cons    => check(e, s, n)
     case n: ast.For     => check(e, s, n)
     case n: ast.Assign  => check(e, s, n)
+    case n: ast.AssignSub => check(e, s, n)
     case n: ast.Subscript => check(e, s, n)
     case others         => ???
   }
@@ -122,6 +123,32 @@ object TypeSystem {
     val v = NodeMeta(t, Some(sym))
 
     (e1.copy(archive = e1.archive.add(n, v)), t)
+  }
+
+  private def check(e: Env, s: Scope, n: ast.AssignSub): (Env, Type) = {
+    val (sym, tn) = e.context.getDef(n.name, n.pos)
+
+    if (sym.isConstant)
+      throw TypeError(s"${n.pos}: ${n.name} is immutable and cannot be assigned.")
+
+    val sn = s.name + n.name + "_"
+    val (e1, tv) = check(e,  s.copy(name = sn), n.value)
+    val (e2, ip) = check(e1, s.copy(name = sn), n.index)
+
+    if (ip != types.Var("Int"))
+      throw TypeError(s"${n.index.pos}: Expected Int but found $ip")
+
+    (tn, n.op, tv) match {
+      case (types.List(item), "=", tv) =>
+        if (item != tv)
+          throw TypeError(s"${n.value.pos}: Expected $item but found $tv")
+      case _ => ???
+    }
+
+    val t = types.Var("Unit")
+    val v = NodeMeta(t, Some(sym))
+
+    (e2.copy(archive = e2.archive.add(n, v)), t)
   }
 
   private def check(e: Env, s: Scope, n: ast.Fun): (Env, Type) = {
