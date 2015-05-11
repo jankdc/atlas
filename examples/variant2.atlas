@@ -1,0 +1,14 @@
+fn main(): Unit
+  println(54321)
+  fibonacci(30)
+  println(12345)
+
+fn fibonacci(n: Int): Unit
+  let mut list = [Int]()
+  list += 0
+  list += 1
+
+  for i = 2 to n
+    list += list[i - 1] + list[i - 2]
+
+  println(list)

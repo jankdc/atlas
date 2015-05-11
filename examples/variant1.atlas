@@ -1,0 +1,22 @@
+fn main(): Unit
+  let fib_list = fibonacci(30)
+  let even_list = filter_even_numbers(fib_list)
+  println(even_list)
+
+fn fibonacci(n: Int): [Int]
+  let mut list = [Int](0, 1)
+
+  for i = 2 to n
+    list += list[i - 1] + list[i - 2]
+
+  list
+
+
+fn filter_even_numbers(list: [Int]): [Int]
+  let mut new_list = [Int]()
+
+  for i = 0 to len(list)
+    if (list[i] % 2 == 0)
+      new_list += list[i]
+
+  new_list

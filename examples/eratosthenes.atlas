@@ -1,0 +1,28 @@
+fn primes_sieve(limit: Int): [Int]
+  if limit < 2
+    [Int](1, 2)
+  else
+    let mut a = make_list(limit, true)
+    let mut b = [Int]()
+    a[0] = false
+    a[1] = false
+
+    for i = 0 to len(a)
+      let is_prime = a[i]
+      if is_prime
+        b += i
+        let init = i * i
+        a[init] = false
+
+        for j = init to limit
+          let step = j + i
+          a[j] = false
+    b
+
+fn make_list(n: Int, v: Boolean):
+  let new_list = [Boolean]()
+
+  for i = 0 to n
+    new_list += v
+
+  new_list
