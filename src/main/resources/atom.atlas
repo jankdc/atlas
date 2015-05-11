@@ -1,59 +1,28 @@
-static BIG_N: Int = 35
-static RANDOM_BOOLEAN: Boolean = false
-
-fn main(): Unit
-  let even_list = filter_even_numbers([Int](2, 4, 5))
-  println(fibo(10))
-
-fn make_list(n: [Boolean]): [Boolean]
-  if true
-    let list = [Boolean](false, true)
-    n
-  elif true
-    let list = [Boolean](false, true)
-    list
+fn primes_sieve(limit: Int): [Int]
+  if limit < 2
+    [Int](1, 2)
   else
-    let list = [Boolean](false, true)
-    list
+    let mut a = make_list(limit, true)
+    let mut b = [Int]()
+    a[0] = false
+    a[1] = false
 
+    for i = 0 to len(a)
+      let is_prime = a[i]
+      if is_prime
+        b += i
+        let init = i * i
+        a[init] = false
 
-fn is_greater(lhs: Int, rhs: Int): Boolean
-  lhs > rhs
+        for j = init to limit
+          let step = j + i
+          a[j] = false
+    b
 
-fn is_smaller(lhs: Int, rhs: Int): Boolean
-  lhs < rhs
+fn make_list(n: Int, v: Boolean):
+  let new_list = [Boolean]()
 
-  inner()
-
-  fn inner(): Boolean
-    RANDOM_BOOLEAN
-
-fn fibo(n: Int): Int
-  if n == 0 or n == 1 or n < 0
-    n
-  else
-    fibo(n - 1) + fibo(n - 2)
-
-fn isSame(n: Int, m: Int): Boolean
-  n == m
-
-fn isSame(n: Boolean, m: Boolean): Boolean
-  n == m
-
-fn fibonacci(n: Int): [Int]
-  let mut list = [Int](0, 1)
-
-  for i = 2 to n
-    list += list[i - 1] + list[i - 2]
-
-  list
-
-
-fn filter_even_numbers(list: [Int]): [Int]
-  let mut new_list = [Int]()
-
-  for i = 0 to len(list)
-    if (list[i] % 2 == 0)
-      new_list += list[i]
+  for i = 0 to n
+    new_list += v
 
   new_list

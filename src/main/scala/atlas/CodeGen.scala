@@ -548,6 +548,21 @@ object CodeGen {
     cinterface += """declare void @free(i8* nocapture)"""
     cinterface += """declare void @llvm.memcpy.p0i8.p0i8.i64(i8* nocapture, i8* nocapture readonly, i64, i32, i1)"""
 
+    val copyCode = mutable.Buffer[String]()
+    copyCode += s"""define void @__copyI(%struct.VectorInt* %lhs, %struct.VectorInt* %rhs) {"""
+    copyCode += """%1 = bitcast %struct.VectorInt* %lhs to i8*"""
+    copyCode += """%2 = bitcast %struct.VectorInt* %rhs to i8*"""
+    copyCode += """call void @llvm.memcpy.p0i8.p0i8.i64(i8* %2, i8* %1, i64 24, i32 8, i1 false)"""
+    copyCode += "ret void"
+    copyCode += """}"""
+
+    copyCode += s"""define void @__copyB(%struct.VectorBoolean* %lhs, %struct.VectorBoolean* %rhs) {"""
+    copyCode += """%1 = bitcast %struct.VectorBoolean* %lhs to i8*"""
+    copyCode += """%2 = bitcast %struct.VectorBoolean* %rhs to i8*"""
+    copyCode += """call void @llvm.memcpy.p0i8.p0i8.i64(i8* %2, i8* %1, i64 24, i32 8, i1 false)"""
+    copyCode += "ret void"
+    copyCode += """}"""
+
     val printlnCode = mutable.Buffer[String]()
     printlnCode += s"""define void @_println${"(Int)".hashCode}(i32 %n) {"""
     printlnCode += "entry:"
@@ -1247,6 +1262,7 @@ object CodeGen {
       lenCode.toSeq                   ++
       vectorCode.toSeq                ++
       debugCode.toSeq                 ++
+      copyCode.toSeq                  ++
       cinterface.toSeq
 
     (genRes, e.id, Map())
@@ -1330,17 +1346,26 @@ object CodeGen {
         val (s, newId, h) = gen(n, e.copy(id = id + 1))
         (ss ++ s, newId, hh ++ h)
     }
-    val bodyStore =
+
+    val (bodyStore, finalId) =
       if (tp.startsWith("%struct.")) {
-        s"store $tp %${id2 - 1}, $tp* %${e.id}"
+        val call = s"%${id2 + 1} = load $tp* %${id2}"
+        val store = s"store $tp %${id2 + 1}, $tp* %${e.id}"
+        (Seq(call, store).mkString("  \n  "), id2 + 1)
       }
       else if (tp != "void")
-        s"store $tp %${id2}, $tp* %${e.id}"
+        (s"store $tp %${id2}, $tp* %${e.id}", id2)
       else
-        ""
+        ("", id2)
 
-    var elseId = id2 + 1
-    var condBr = s"br i1 %$id1, label %$bodyId, label %$elseId"
+    val elseId = finalId + 1
+
+    val condBr =
+      if (tp.startsWith("%struct.")) {
+        s"br i1 %$id1, label %$bodyId, label %${elseId}"
+      }
+      else
+        s"br i1 %$id1, label %$bodyId, label %$elseId"
 
     val (g, id3, heap3) = n.others.foldLeft(
       Seq[Seq[String]](),
@@ -1350,16 +1375,36 @@ object CodeGen {
         // Needs to skip 2 instruction ids in order to provide space
         // for label ids.
         val (s, newId, h) = gen(n, e.copy(id = id + 1))
-        val withStore =
-          if (tp.startsWith("%struct.")) {
-            s :+ s"store $tp %${newId - 1}, $tp* %${e.id}"
+        val (withStore, newFinalId) =
+          if (tp.startsWith("%struct.VectorBoolean")) {
+            val call = s"call void @__copyB($tp* %$newId, $tp* %${e.id})"
+            if (s.last.startsWith("call void @_Z19vector_set_borrowed")) {
+              (s ++ Seq(call) :+ s"call void @_Z19vector_set_borrowedP13VectorBoolean(%struct.VectorBoolean* %${e.id})", newId)
+            }
+            else {
+              (s ++ Seq(call), newId)
+            }
+
+          }
+
+          else if (tp.startsWith("%struct.VectorInt")) {
+            val call = s"call void @__copyI($tp* %$newId, $tp* %${e.id})"
+            if (s.last.startsWith("call void @_Z19vector_set_borrowed")) {
+              (s ++ Seq(call) :+ s"call void @_Z19vector_set_borrowedP9VectorInt(%struct.VectorInt* %${e.id})", newId)
+            }
+            else {
+              (s ++ Seq(call), newId)
+            }
+            (s ++ Seq(call), newId)
           }
           else if (tp != "void")
-            s :+ s"store $tp %${newId}, $tp* %${e.id}"
+            (s :+ s"store $tp %${newId}, $tp* %${e.id}", newId)
           else
-            s
-        (ss :+ withStore, newId + 1, hh ++ h)
+            (s, newId)
+
+        (ss :+ withStore, newFinalId + 1, hh ++ h)
     }
+
 
     val newIns = g.map(_ :+ s"br label %$id3")
     val (newRes, id4) =
@@ -1381,7 +1426,7 @@ object CodeGen {
 
     val frees = tp match {
       case struct if struct.startsWith("%struct.") =>
-        val retHeap = (retTp, id2.toString)
+        val retHeap = (retTp, finalId.toString)
         val allHeap = heap1 ++ heap2
 
         val heapId = allHeap.get(retHeap) getOrElse ""
@@ -1402,7 +1447,7 @@ object CodeGen {
 
     val stillNeedHeap: HeapStore = tp match {
       case struct if struct.startsWith("%struct.") =>
-        val retHeap = (retTp, id2.toString)
+        val retHeap = (retTp, finalId.toString)
         val allHeap = heap1 ++ heap2 ++ heap3
         val heapId = allHeap.get(retHeap) getOrElse ""
         if (allocNamesInScope contains heapId)
@@ -1415,7 +1460,7 @@ object CodeGen {
 
     val changeToBorrowed: String = tp match {
       case struct if struct.startsWith("%struct.") =>
-        val retHeap = (retTp, id2.toString)
+        val retHeap = (retTp, finalId.toString)
         val allHeap = heap1 ++ heap2 ++ heap3
         val heapId = allHeap.get(retHeap) getOrElse ""
         if (! (allocNamesInScope contains heapId)) {
