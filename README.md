@@ -29,6 +29,6 @@ are running.
 
 In order to build the project, please cd to the root of the project, and
 run the 'sbt one-jar' command. This will build the compiler and
-repackaged into an all-in-one .jar file. The .jar file is located in the
-project_root/target/scala-2.11 directory. The .jar file is suffixed with a
+repackages it into an all-in-one .jar file. The .jar file is located in the
+generated target/scala-2.11 directory. The .jar file is suffixed with a
 'one-jar'.
