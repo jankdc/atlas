@@ -10,6 +10,8 @@ import scala.io.Source
 import scala.sys.process._
 import java.io.{File, FileWriter, BufferedWriter}
 
+case class DependencyError(msg: String) extends RuntimeException(msg)
+
 object Main {
   // Command Line Outputs
   lazy val tooManyArguments = "atlas: error: too many arguments"
@@ -69,10 +71,28 @@ object Main {
     val valgrind = "valgrind --leak-check=full --track-origins=yes --show-reachable=yes ./bin/main"
     output.write(genString)
     output.close()
-    (buildLLC(path + ".ll", path)   #&&
-     buildLinker(path + ".o", path) #&&
-     path                           #&&
-     valgrind).!
+
+    if (buildLLC(path + ".ll", path).! != 0) {
+      val msg = """
+        |LLVM IR Compiler (llc) is not in PATH.
+        |Please install llc in the path so I can call it.
+        """.stripMargin
+
+      throw DependencyError(msg)
+    }
+
+    if (buildLinker(path + ".o", path) != 0) {
+      val msg = """
+       |echo "Compiler requires any of the following dependencies."
+       |echo "- GCC (4.7 or above)"
+       |echo "- Clang (3.6 or above)"
+       |echo "- Any C++11 compiler."
+       |echo "- OS X Object Linker (ld)"
+       """.stripMargin
+      throw DependencyError(msg)
+    }
+
+    (path #&& valgrind).!
   }
   catch {
     case err: ParserError =>
@@ -82,10 +102,12 @@ object Main {
     case err: CodeGenError =>
       println(s"[error]${err.getMessage}")
     case err: NotImplementedFeature =>
-        println(s"[error]${err.getMessage}")
+      println(s"[error]${err.getMessage}")
     case err: java.io.FileNotFoundException =>
-        println(s"${err.getMessage}\n")
-        println(usage)
+      println(s"${err.getMessage}\n")
+      println(usage)
+    case err: DependencyError =>
+      println(s"[error]${err.getMessage}")
   }
 
   private def processCmd(args: Seq[String]): Unit = {
@@ -120,7 +142,25 @@ object Main {
 
       output.write(genString)
       output.close()
-      (buildLLC(fullnm, prefix) #&& buildLinker(prefix + ".o", prefix)).!
+
+      if (buildLLC(fullnm, prefix).! != 0) {
+        val msg = """
+          |LLVM IR Compiler (llc) is not in PATH.
+          |Please install llc in the path so I can call it.
+          """.stripMargin
+        throw DependencyError(msg)
+      }
+
+      if (buildLinker(prefix + ".o", prefix) != 0) {
+        val msg = """
+         |echo "Compiler requires any of the following dependencies."
+         |echo "- GCC (4.7 or above)"
+         |echo "- Clang (3.6 or above)"
+         |echo "- Any C++11 compiler."
+         |echo "- OS X Object Linker (ld)"
+         """.stripMargin
+        throw DependencyError(msg)
+      }
     }
     catch {
       case err: ParserError =>
@@ -139,6 +179,9 @@ object Main {
         println(s"${err.getMessage}\n")
         println(usage)
         System.exit(-1)
+      case err: DependencyError =>
+        println(s"[error]${err.getMessage}")
+        System.exit(-1)
     }
   }
 
@@ -150,15 +193,36 @@ object Main {
   private def buildLLC(src: String, dst: String): String =
     s"llc -O2 -filetype=obj $src -o $dst.o"
 
-  private def buildLinker(src: String, dst: String): String = {
+  private def buildLinker(src: String, dst: String): Int = {
     val arch = System.getProperty("os.arch")
     val osVer = System.getProperty("os.version")
+    val osName = System.getProperty("os.name").toLowerCase.filter(_ != ' ')
     val osxCmdOpt = s"macosx_version_min $osVer"
-    s"ld -arch $arch -$osxCmdOpt -o $dst $src -lSystem"
+
+    osName match {
+      case "macosx" =>
+        var id = 0
+        id = s"ld -arch $arch -$osxCmdOpt -o $dst $src -lSystem".!
+        id = s"c++ -o $dst $src".!
+        id = s"clang -o $dst $src".!
+        id = s"gcc -o $dst $src".!
+        id
+      case "linux"  =>
+        var id = 0
+        id = s"ld -arch $arch -$osxCmdOpt -o $dst $src -lSystem".!
+        id = s"c++ -o $dst $src".!
+        id = s"clang -o $dst $src".!
+        id = s"gcc -o $dst $src".!
+        id
+      case os =>
+        throw NotImplementedFeature(s"$os is currently not supported.")
+    }
   }
 
   private def toString(t: Token): String = t match {
     case _: tokens.NewLine => s"${t.pos}: \\n"
     case _                 => s"${t.pos}: ${t.raw}"
   }
+
 }
+
