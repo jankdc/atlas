@@ -13,7 +13,12 @@ import java.io.{File, FileWriter, BufferedWriter}
 object Main {
   // Command Line Outputs
   lazy val tooManyArguments = "atlas: error: too many arguments"
-  lazy val usage = "Usage: atlas [src-file]"
+  lazy val usage = Seq(
+    "USAGE: atlas [option] <src-file>                             ",
+    "                                                             ",
+    "OPTIONS:                                                     ",
+    "--debug          Print allocation and de-allocation of lists.")
+    .mkString("\n")
 
   // Built-in Compiler Features.
   lazy val buildInTps = Set("Unit", "Int", "Boolean")
@@ -78,13 +83,18 @@ object Main {
       println(s"[error]${err.getMessage}")
     case err: NotImplementedFeature =>
         println(s"[error]${err.getMessage}")
+    case err: java.io.FileNotFoundException =>
+        println(s"${err.getMessage}\n")
+        println(usage)
   }
 
   private def processCmd(args: Seq[String]): Unit = {
      // Process Command Line Arguments.
-    val srcPath = args match {
+    val (srcPath, debugMode) = args match {
+      case Seq("--debug", src) =>
+        (src, true)
       case Seq(src) =>
-        src
+        (src, false)
       case Seq() =>
         println(usage)
         return ()
@@ -102,7 +112,7 @@ object Main {
       val petree = partEval(astree)
       val context = Context(buildInTps, builtInFns)
       val nodeMap = collectTypes(context, petree)
-      val genCode = genLLVM(petree)(nodeMap)
+      val genCode = genLLVM(petree, debugMode)(nodeMap)
       val genString = genCode.mkString("\n")
       val prefix = filePath.getPath.split('.').head
       val fullnm = prefix + ".ll"
@@ -124,6 +134,10 @@ object Main {
         System.exit(-1)
       case err: NotImplementedFeature =>
         println(s"[error]${err.getMessage}")
+        System.exit(-1)
+      case err: java.io.FileNotFoundException =>
+        println(s"${err.getMessage}\n")
+        println(usage)
         System.exit(-1)
     }
   }

@@ -1400,8 +1400,6 @@ object CodeGen {
         heapSeq.map { case (th, h) => genFreeMemStruct(e, h, th) }
     }
 
-    println(heap1 ++ heap2)
-
     val stillNeedHeap: HeapStore = tp match {
       case struct if struct.startsWith("%struct.") =>
         val retHeap = (retTp, id2.toString)
