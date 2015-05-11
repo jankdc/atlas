@@ -1,0 +1,21 @@
+static CONSTANT: Int = 123456
+
+fn main(): Unit
+  let var1 = 32
+  let var2 = false
+  let nums = [Int](1, 2, CONSTANT)
+  let list = [Boolean](false, true, false)
+  let mut mutable_var = 32
+  println(mutable_var) # Must be 32
+  mutable_var = 23
+  println(mutable_var) # Must be 23
+
+  println(make_list(0, 5, false)) # [false, false, false, false, false]
+
+fn make_list(beg: Int, end: Int, v: Boolean): [Boolean]
+  let mut new_list = [Boolean]()
+
+  for i = beg to end
+    new_list += v
+
+  new_list
