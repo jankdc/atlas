@@ -8,6 +8,7 @@ import atlas.CodeGen.genLLVM
 import atlas.tokens.Token
 import scala.io.Source
 import scala.sys.process._
+import scala.collection.mutable
 import java.io.{File, FileWriter, BufferedWriter}
 
 case class DependencyError(msg: String) extends RuntimeException(msg)
@@ -33,8 +34,8 @@ object Main {
        buildFnSym("len", Seq("[Boolean]")) -> types.Var("Int"))
 
   def main(args: Array[String]): Unit = {
-    // debugCompiler(verbose = false)
-    processCmd(args)
+    debugCompiler(verbose = false)
+    // processCmd(args)
   }
 
   private def debugCompiler(verbose: Boolean): Unit = try {
@@ -201,19 +202,18 @@ object Main {
 
     osName match {
       case "macosx" =>
-        var id = 0
-        id = s"ld -arch $arch -$osxCmdOpt -o $dst $src -lSystem".!
-        id = s"c++ -o $dst $src".!
-        id = s"clang -o $dst $src".!
-        id = s"gcc -o $dst $src".!
-        id
+        var id = mutable.Buffer[Int]()
+        id += s"ld -arch $arch -$osxCmdOpt -o $dst $src -lSystem".!(ProcessLogger(line => ()))
+        id += s"c++ -o $dst $src".!(ProcessLogger(line => ()))
+        id += s"clang -o $dst $src".!(ProcessLogger(line => ()))
+        id += s"gcc -o $dst $src".!(ProcessLogger(line => ()))
+        if (id exists (_ == 0)) 0 else 1
       case "linux"  =>
-        var id = 0
-        id = s"ld -arch $arch -$osxCmdOpt -o $dst $src -lSystem".!
-        id = s"c++ -o $dst $src".!
-        id = s"clang -o $dst $src".!
-        id = s"gcc -o $dst $src".!
-        id
+        var id = mutable.Buffer[Int]()
+        id += s"c++ -o $dst $src".!(ProcessLogger(line => ()))
+        id += s"clang -o $dst $src".!(ProcessLogger(line => ()))
+        id += s"gcc -o $dst $src".!(ProcessLogger(line => ()))
+        if (id exists (_ == 0)) 0 else 1
       case os =>
         throw NotImplementedFeature(s"$os is currently not supported.")
     }
