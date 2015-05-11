@@ -5,8 +5,8 @@
 java -jar atlas_jar_file [option] src_file
 
 Legend:
-atlas_jar_file = The path to the ATLAS compiler
-src_file = The path to the ATLAS source code
+- atlas_jar_file: The path to the ATLAS compiler
+- src_file: The path to the ATLAS source code
 
 ## Build:
 
