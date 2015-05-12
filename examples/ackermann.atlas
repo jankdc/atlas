@@ -4,7 +4,9 @@ fn main(): Unit
 fn ackermann(x: Int, y: Int): Int
   if x == 0
     y + 1
-  elif x > 0 and n = 0
+  elif x > 0 and y == 0
     ackermann(x - 1, 1)
-  elif x > 0 and n > 0
+  elif x > 0 and y > 0
     ackermann(x - 1, ackermann(x, y - 1))
+  else
+    -1

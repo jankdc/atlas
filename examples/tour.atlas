@@ -7,6 +7,7 @@ fn main(): Unit
   let list = [Boolean](false, true, false)
   let mut mutable_var = 32
   println(mutable_var) # Must be 32
+
   mutable_var = 23
   println(mutable_var) # Must be 23
 
