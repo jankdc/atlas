@@ -29,7 +29,7 @@ object Lexer {
 
     val genTokens = buffer
      .toSeq
-     .filterNot(_.isInstanceOf[tokens.Comment])
+     .map { case t: tokens.Comment => tokens.NewLine("\n")(t.pos); case t => t }
      .mkIndent
      .filterNot(_.isInstanceOf[tokens.WhiteSp])
 

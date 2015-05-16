@@ -2,7 +2,7 @@
 # I'm proud that no memory leaks have occured!
 
 fn main(): Unit
-  let primes = primes_sieve(100)
+  let primes = primes_sieve(100) # Comments can now be at the side.
   println(primes)
 
 fn primes_sieve(limit: Int): [Int]
