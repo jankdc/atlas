@@ -1674,7 +1674,8 @@ object CodeGen {
     val frees = {
       val allHeap = heap1 ++ heap2
       val heapSeq = allHeap.toSeq
-        .filter { case ((tp, _), hid) => allocNamesInScope contains hid }
+        .filter { case ((tp, nn), hid) =>
+          (allocNamesInScope contains hid) || nn == hid }
         .map { case ((tp, _), hid) => (tp, hid) }
       heapSeq.map { case (th, h) => genFreeMemStruct(e, h, th) }
     }
@@ -1729,7 +1730,8 @@ object CodeGen {
     val frees = {
       val allHeap = heap1 ++ heap2 ++ heap3
       val heapSeq = allHeap.toSeq
-        .filter { case ((tp, _), hid) => allocNamesInScope contains hid }
+        .filter { case ((tp, nn), hid) =>
+          (allocNamesInScope contains hid) || nn == hid }
         .map { case ((tp, _), hid) => (tp, hid) }
       heapSeq.map { case (th, h) => genFreeMemStruct(e, h, th) }
     }
