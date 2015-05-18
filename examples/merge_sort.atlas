@@ -1,0 +1,56 @@
+fn main(): Unit
+  println(merge_sort[3, 4, 2, 1, 5])
+
+fn merge_sort(m: [Int]): [Int]
+  # Base case. A list of zero or one elements is sorted, by definition.
+  if len(m) <= 1
+    m
+  else
+    # Recursive case. First, *divide* the list into equal-sized sublists.
+    let mid = len(m) / 2
+    let mut lhs = [Int]()
+    let mut rhs = [Int]()
+
+    for i = 0 to mid
+      lhs += m[i]
+
+    for i = mid to len(m)
+      rhs += m[i]
+
+    # Recursively sort both sublists
+    lhs = merge_sort(lhs)
+    rhs = merge_sort(rhs)
+
+    merge(lhs, rhs)
+
+fn merge(lhs: [Int], rhs: [Int]): [Int]
+  let mut lhsMut = lhs
+  let mut rhsMut = rhs
+  let mut result = [Int]()
+
+  while len(lhsMut) != 0 and len(rhsMut) != 0
+    println(lhsMut[0])
+    println(rhsMut[0])
+    if lhsMut[0] <= rhsMut[0]
+      result += lhsMut[0]
+      lhsMut = rest(lhsMut)
+    else
+      result += rhsMut[0]
+      rhsMut = rest(rhsMut)
+
+  # either lhs or rhs may have elements lhs
+  while len(lhsMut) != 0
+    result += lhsMut[0]
+    lhsMut = rest(lhsMut)
+
+  while len(rhsMut) != 0
+    result += rhsMut[0]
+    rhsMut = rest(rhsMut)
+
+  result
+
+fn rest(list: [Int]): [Int]
+  let mut newList = [Int]()
+  for i = 1 to len(list)
+    newList += list[i]
+  newList
