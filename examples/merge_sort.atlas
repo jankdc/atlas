@@ -29,8 +29,6 @@ fn merge(lhs: [Int], rhs: [Int]): [Int]
   let mut result = [Int]()
 
   while len(lhsMut) != 0 and len(rhsMut) != 0
-    println(lhsMut[0])
-    println(rhsMut[0])
     if lhsMut[0] <= rhsMut[0]
       result += lhsMut[0]
       lhsMut = rest(lhsMut)

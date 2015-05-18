@@ -158,12 +158,16 @@ object CodeGen {
         (Seq(call), id1, HeapStore())
       case (_, types.List(_)) =>
         val cname = genCFnName("copy_vector", Seq(valTp), valTp)
-        val fname = genCFnName("vector_free_lhs_if_diff", Seq(valTp, valTp), types.Var("Unit"))
-        val free = s"call $fname($tp* $nm, $tp* %$id1)"
-        val call = s"%${id1 + 1} = call $cname($tp* %$id1)"
-        val (ge, d1, _) = genAllocStore(id1 + 2, s"%${id1 + 1}", valTp)
+        val fname = genCFnName("vector_free", Seq(valTp), types.Var("Unit"))
+        val free = s"call $fname($tp* $nm)"
+
+        val temp = s"%${id1 + 1} = alloca $tp"
+        val (tempCpy, d0) = genMemCopy(id1 + 2, nm, s"%${id1 + 1}", tp)
+
+        val call = s"%${d0 + 1} = call $cname($tp* %$id1)"
+        val (ge, d1, _) = genAllocStore(d0 + 2, s"%${d0 + 1}", valTp)
         val (gm, d2) = genMemCopy(d1 + 1, s"%$d1", nm, valTp.toLLVMType)
-        (Seq(free, call) ++ ge ++ gm, d2, Map((valTp, d1.toString) -> nm.tail))
+        (Seq(temp) ++ tempCpy ++ Seq(call, free) ++ ge ++ gm, d2, Map((valTp, d1.toString) -> nm.tail))
       case _ =>
         (Seq(s"store $tp %$id1, $tp* $nm"), id1, HeapStore())
     }
