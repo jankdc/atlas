@@ -1,5 +1,5 @@
 fn main(): Unit
-  println(merge_sort[3, 4, 2, 1, 5])
+  println(merge_sort([Int](3, 4, 2, 1, 5)))
 
 fn merge_sort(m: [Int]): [Int]
   # Base case. A list of zero or one elements is sorted, by definition.
