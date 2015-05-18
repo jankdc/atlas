@@ -195,7 +195,7 @@ object TypeSystem {
   private def returnsParam(n: Node, paramNames: Seq[String]): Boolean = n match {
     case ast.NamedId(nm) => paramNames contains nm
     case ast.Cond(_, body, others) =>
-      returnsParam(body.last, paramNames) && others.exists(returnsParam(_, paramNames))
+      returnsParam(body.last, paramNames) || others.exists(returnsParam(_, paramNames))
     case ast.Elif(_, body) =>
       returnsParam(body.last, paramNames)
     case ast.Else(body) =>
