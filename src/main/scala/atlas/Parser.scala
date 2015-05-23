@@ -236,16 +236,16 @@ object Parser {
     val anymsg = "an atomic expression"
     val integr = one("Integer")
     val nameid = one("Identifier")
-    val boolvl = any("boolean expression", key("false"), key("true"))
+    val boolean = one("Boolean")
     val parser = any(anymsg,
       parens,
       integr,
+      boolean,
       parseApp,
       parseSubs,
       parseCons,
       nameid,
-      parseUnaOp,
-      boolvl)
+      parseUnaOp)
 
     val result = parser(ts)
     result
@@ -410,10 +410,6 @@ object Parser {
       case tokens.Reserve(`s`) +: rest  =>
         if (s == "pass")
           (Seq(ast.Nop()(ts.head.pos)), rest)
-        else if (s == "true")
-          (Seq(ast.Boolean(true)(ts.head.pos)), rest)
-        else if (s == "false")
-          (Seq(ast.Boolean(false)(ts.head.pos)), rest)
         else if (s == "+=" || s == "=")
           (Seq(ast.Operator(s)(ts.head.pos)), rest)
         else if (precedenceMap contains s)
@@ -427,6 +423,7 @@ object Parser {
   private def pin(t: Token): Seq[Node] = t match {
     case tokens.Identifier(n) => Seq(ast.Identifier(n)(t.pos))
     case tokens.Integer(n) => Seq(ast.Integer(n.toInt)(t.pos))
+    case tokens.Boolean(n) => Seq(ast.Boolean(n.toBoolean)(t.pos))
     case others => Seq()
   }
 

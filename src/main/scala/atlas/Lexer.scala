@@ -52,6 +52,7 @@ object Lexer {
 
   private lazy val patterns: Seq[Pattern] = Seq(
     (reserve, (s: String, p: LinePos) => tokens.Reserve(s)(p)),
+    (boolean, (s: String, p: LinePos) => tokens.Boolean(s)(p)),
     (identifier, (s: String, p: LinePos) => tokens.Identifier(s)(p)),
     (integer, (s: String, p: LinePos) => tokens.Integer(s)(p)),
     (whitespace, (s: String, p: LinePos) => tokens.Whitespace(s)(p)),
@@ -65,8 +66,6 @@ object Lexer {
     buffer += "(pass)"
     buffer += "(mut)"
     buffer += "(let)"
-    buffer += "(true)"
-    buffer += "(false)"
     buffer += "(while)"
     buffer += "(for)"
     buffer += "(to)"
@@ -97,6 +96,7 @@ object Lexer {
     buffer.mkString("|").r
   }
 
+  private lazy val boolean = "(true|false)".r
   private lazy val comment = "( *#.*\\n)|( *#.*\\r\\n)".r
   private lazy val integer = "(0)|([1-9][0-9]*)".r
   private lazy val newline = "(\\n)|(\\r\\n)".r
