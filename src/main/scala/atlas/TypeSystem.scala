@@ -15,7 +15,7 @@ object TypeSystem {
   private def check(e: Env, s: Scope, n: Node): (Env, Type) = n match {
     case n: ast.Integer => check(e, s, n)
     case n: ast.Boolean => check(e, s, n)
-    case n: ast.NamedId => check(e, s, n)
+    case n: ast.Identifier => check(e, s, n)
     case n: ast.Let     => check(e, s, n)
     case n: ast.Mut     => check(e, s, n)
     case n: ast.Fun     => check(e, s, n)
@@ -49,7 +49,7 @@ object TypeSystem {
     (e.copy(archive = e.archive.add(n, v)), t)
   }
 
-  private def check(e: Env, s: Scope, n: ast.NamedId): (Env, Type) = {
+  private def check(e: Env, s: Scope, n: ast.Identifier): (Env, Type) = {
     val (sym, t) = e.context.getDef(n.name, n.pos)
     val v = NodeMeta(t, Some(sym))
     (e.copy(archive = e.archive.add(n, v)), t)
@@ -193,7 +193,7 @@ object TypeSystem {
   }
 
   private def returnsParam(n: Node, paramNames: Seq[String]): Boolean = n match {
-    case ast.NamedId(nm) => paramNames contains nm
+    case ast.Identifier(nm) => paramNames contains nm
     case ast.Cond(_, body, others) =>
       returnsParam(body.last, paramNames) || others.exists(returnsParam(_, paramNames))
     case ast.Elif(_, body) =>
@@ -477,7 +477,7 @@ object TypeSystem {
   private def toType(n: ast.Node): Type = n match {
     case ast.Type(Seq(n)) => toType(n)
     case ast.Type(many)   => types.Fun(many.map(toType))
-    case ast.NamedId(n)   => types.Var(n)
+    case ast.Identifier(n)   => types.Var(n)
     case ast.ListType(tp) => types.List(toType(tp))
     case other => ???
   }

@@ -13,7 +13,7 @@ object Parser {
 
   private def parseTop(ts: Seq[Token]): Result = {
     val desc = "a top level expression"
-    val expr = any(desc, parseStatic, parseFun, one("NewLine"))
+    val expr = any(desc, parseStatic, parseFun, one("Newline"))
     val parser = seq(repPat(expr, "EOF"), one("EOF"))
     val (ns, rm) = parser(ts)
     (Seq(ast.Top(ns)(ts.head.pos)), rm)
@@ -21,12 +21,12 @@ object Parser {
 
   private def parseFun(ts: Seq[Token]): Result = {
     val fn = key("fn")
-    val name = one("NamedId")
-    val newl = one("NewLine")
+    val name = one("Identifier")
+    val newl = one("Newline")
     val body = dlist(parseStmt)
     val params = plist(parseParam)
     val parser = seq(fn, name, params, key(":"), parseType, newl, body)
-    val (Seq(ast.NamedId(nm)
+    val (Seq(ast.Identifier(nm)
         , ast.List(ps)
         , tp: ast.Type
         , ast.List(bd))
@@ -36,18 +36,18 @@ object Parser {
   }
 
   private def parseApp(ts: Seq[Token]): Result = {
-    val name = one("NamedId")
+    val name = one("Identifier")
     val args = plist(parseExpr)
     val parser = seq(name, args)
-    val (Seq(ast.NamedId(nm), ast.List(as)), rs) = parser(ts)
+    val (Seq(ast.Identifier(nm), ast.List(as)), rs) = parser(ts)
     (Seq(ast.App(nm, as)(ts.head.pos)), rs)
   }
 
   private def parseSubs(ts: Seq[Token]): Result = {
-    val name = one("NamedId")
+    val name = one("Identifier")
     val arg = seq(key("["), parseExpr, key("]"))
     val parser = seq(name, arg)
-    val (Seq(ast.NamedId(nm), as), rs) = parser(ts)
+    val (Seq(ast.Identifier(nm), as), rs) = parser(ts)
     (Seq(ast.Subscript(nm, as)(ts.head.pos)), rs)
   }
 
@@ -59,10 +59,10 @@ object Parser {
   }
 
   private def parseStmt(ts: Seq[Token]): Result = {
-    val exprStmt = seq(parseExpr, one("NewLine"))
-    val callStmt = seq(parseApp, one("NewLine"))
-    val newlStmt = one("NewLine")
-    val passStmt = seq(key("pass"), one("NewLine"))
+    val exprStmt = seq(parseExpr, one("Newline"))
+    val callStmt = seq(parseApp, one("Newline"))
+    val newlStmt = one("Newline")
+    val passStmt = seq(key("pass"), one("Newline"))
     val parser = any("a statement",
       newlStmt,
       exprStmt,
@@ -82,8 +82,8 @@ object Parser {
   }
 
   private def parseParam(ts: Seq[Token]): Result = {
-    val parser = seq(one("NamedId"), key(":"), parseType)
-    val (Seq(ast.NamedId(nm), tp), rs) = parser(ts)
+    val parser = seq(one("Identifier"), key(":"), parseType)
+    val (Seq(ast.Identifier(nm), tp), rs) = parser(ts)
     (Seq(ast.Param(nm, tp)(ts.head.pos)), rs)
   }
 
@@ -98,7 +98,7 @@ object Parser {
   // TODO: Add more types!
   // e.g. tuples, list, maps, polymorphic
   private def parseType(ts: Seq[Token]): Result = {
-    val simple = one("NamedId")
+    val simple = one("Identifier")
     val others = rep(seq(key("->"), simple))
     val simpTp = seq(simple, others)
     val parser = any("a type", simpTp, parseListType)
@@ -109,7 +109,7 @@ object Parser {
 
   private def parseWhile(ts: Seq[Token]): Result = {
     val block = dlist(parseStmt)
-    val break = one("NewLine")
+    val break = one("Newline")
     val parser = seq(key("while"), parseExpr, break, block)
     val (Seq(cond, ast.List(body)), rs) = parser(ts)
     (Seq(ast.While(cond, body)(ts.head.pos)), rs)
@@ -117,8 +117,8 @@ object Parser {
 
   private def parseFor(ts: Seq[Token]): Result = {
     val block = dlist(parseStmt)
-    val name = one("NamedId")
-    val break = one("NewLine")
+    val name = one("Identifier")
+    val break = one("Newline")
     val parser = seq(
       key("for"),
       name,
@@ -129,13 +129,13 @@ object Parser {
       break,
       block)
 
-    val (Seq(ast.NamedId(nm), _, from, to, ast.List(body)), rs) = parser(ts)
+    val (Seq(ast.Identifier(nm), _, from, to, ast.List(body)), rs) = parser(ts)
     (Seq(ast.For(nm, from, to, body)(ts.head.pos)), rs)
   }
 
   private def parseCond(ts: Seq[Token]): Result = {
     val block = dlist(parseStmt)
-    val break = one("NewLine")
+    val break = one("Newline")
     val ifStmt = seq(key("if"), parseExpr, break, block)
     val elifStmt = rep(parseElif)
     val elseStmt = eat(parseElse)
@@ -149,7 +149,7 @@ object Parser {
 
   private def parseElif(ts: Seq[Token]): Result = {
     val block = dlist(parseStmt)
-    val break = one("NewLine")
+    val break = one("Newline")
     val parser = seq(key("elif"), parseExpr, break, block)
     val (Seq(cond, ast.List(body)), rs) = parser(ts)
     (Seq(ast.Elif(cond, body)(ts.head.pos)), rs)
@@ -157,7 +157,7 @@ object Parser {
 
   private def parseElse(ts: Seq[Token]): Result = {
     val block = dlist(parseStmt)
-    val break = one("NewLine")
+    val break = one("Newline")
     val parser = seq(key("else"), break, block)
     val (Seq(ast.List(body)), rs) = parser(ts)
     (Seq(ast.Else(body)(ts.head.pos)), rs)
@@ -165,51 +165,51 @@ object Parser {
 
   private def parseStatic(ts: Seq[Token]): Result = {
     val static  = key("static")
-    val name    = one("NamedId")
+    val name    = one("Identifier")
     val colon   = key(":")
     val assign  = key("=")
-    val newline = one("NewLine")
+    val newline = one("Newline")
     val parser  = seq(static, name, colon, parseType, assign, parseExpr, newline)
-    val (Seq(ast.NamedId(nm), tp, _, rv), rm) = parser(ts)
+    val (Seq(ast.Identifier(nm), tp, _, rv), rm) = parser(ts)
     (Seq(ast.Static(nm, tp, rv)(ts.head.pos)), rm)
   }
 
   private def parseMut(ts: Seq[Token]): Result = {
     val let     = key("let")
     val mut     = key("mut")
-    val name    = one("NamedId")
+    val name    = one("Identifier")
     val assign  = key("=")
-    val newline = one("NewLine")
+    val newline = one("Newline")
     val parser  = seq(let, mut, name, assign, parseExpr, newline)
-    val (Seq(ast.NamedId(nm), _, rv), rm) = parser(ts)
+    val (Seq(ast.Identifier(nm), _, rv), rm) = parser(ts)
     (Seq(ast.Mut(nm, rv)(ts.head.pos)), rm)
   }
 
   private def parseLet(ts: Seq[Token]): Result = {
     val let     = key("let")
-    val name    = one("NamedId")
+    val name    = one("Identifier")
     val assign  = key("=")
-    val newline = one("NewLine")
+    val newline = one("Newline")
     val parser  = seq(let, name, assign, parseExpr, newline)
-    val (Seq(ast.NamedId(nm), _,  rv), rm) = parser(ts)
+    val (Seq(ast.Identifier(nm), _,  rv), rm) = parser(ts)
     (Seq(ast.Let(nm, rv)(ts.head.pos)), rm)
   }
 
   private def parseAssign(ts: Seq[Token]): Result = {
-    val name    = one("NamedId")
+    val name    = one("Identifier")
     val assign  = any("an assignable operator", key("="), key("+="))
-    val newline = one("NewLine")
+    val newline = one("Newline")
     val parser  = seq(name, assign, parseExpr, newline)
-    val (Seq(ast.NamedId(nm), ast.Operator(op), rv), rm) = parser(ts)
+    val (Seq(ast.Identifier(nm), ast.Operator(op), rv), rm) = parser(ts)
     (Seq(ast.Assign(nm, op, rv)(ts.head.pos)), rm)
   }
 
   private def parseAssignSub(ts: Seq[Token]): Result = {
-    val name    = one("NamedId")
+    val name    = one("Identifier")
     val assign  = any("an assignable operator", key("="))
-    val newline = one("NewLine")
+    val newline = one("Newline")
     val parser  = seq(name, key("["), parseExpr, key("]"), assign, parseExpr, newline)
-    val (Seq(ast.NamedId(nm), index, ast.Operator(op), rv), rm) = parser(ts)
+    val (Seq(ast.Identifier(nm), index, ast.Operator(op), rv), rm) = parser(ts)
     (Seq(ast.AssignSub(nm, index, op, rv)(ts.head.pos)), rm)
   }
 
@@ -235,7 +235,7 @@ object Parser {
     val parens = seq(key("("), parseExpr, key(")"))
     val anymsg = "an atomic expression"
     val integr = one("Integer")
-    val nameid = one("NamedId")
+    val nameid = one("Identifier")
     val boolvl = any("boolean expression", key("false"), key("true"))
     val parser = any(anymsg,
       parens,
@@ -425,7 +425,7 @@ object Parser {
     }
 
   private def pin(t: Token): Seq[Node] = t match {
-    case tokens.NamedId(n) => Seq(ast.NamedId(n)(t.pos))
+    case tokens.Identifier(n) => Seq(ast.Identifier(n)(t.pos))
     case tokens.Integer(n) => Seq(ast.Integer(n.toInt)(t.pos))
     case others => Seq()
   }

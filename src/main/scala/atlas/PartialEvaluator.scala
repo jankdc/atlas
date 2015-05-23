@@ -6,7 +6,7 @@ object PartialEvaluator {
   def partEval(n: Node): Node = n match {
     case n: ast.Integer => n
     case n: ast.Boolean => n
-    case n: ast.NamedId => n
+    case n: ast.Identifier => n
     case n: ast.Assign  => n.copy(value = partEval(n.value))(n.pos)
     case n: ast.Let     => n.copy(value = partEval(n.value))(n.pos)
     case n: ast.Mut     => n.copy(value = partEval(n.value))(n.pos)

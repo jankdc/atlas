@@ -14,7 +14,7 @@ object Lexer {
       val token = findLongest(source, pos)
 
       pos = token match {
-        case _: tokens.NewLine |
+        case _: tokens.Newline |
              _: tokens.Comment =>
           pos.copy(row = pos.row + 1, col = 1)
         case _ =>
@@ -29,9 +29,9 @@ object Lexer {
 
     val genTokens = buffer
      .toSeq
-     .map { case t: tokens.Comment => tokens.NewLine("\n")(t.pos); case t => t }
+     .map { case t: tokens.Comment => tokens.Newline("\n")(t.pos); case t => t }
      .mkIndent
-     .filterNot(_.isInstanceOf[tokens.WhiteSp])
+     .filterNot(_.isInstanceOf[tokens.Whitespace])
 
     genTokens :+ tokens.EOF()(pos)
   }
@@ -52,10 +52,10 @@ object Lexer {
 
   private lazy val patterns: Seq[Pattern] = Seq(
     (reserve, (s: String, p: LinePos) => tokens.Reserve(s)(p)),
-    (namedId, (s: String, p: LinePos) => tokens.NamedId(s)(p)),
+    (identifier, (s: String, p: LinePos) => tokens.Identifier(s)(p)),
     (integer, (s: String, p: LinePos) => tokens.Integer(s)(p)),
-    (whiteSp, (s: String, p: LinePos) => tokens.WhiteSp(s)(p)),
-    (newline, (s: String, p: LinePos) => tokens.NewLine(s)(p)),
+    (whitespace, (s: String, p: LinePos) => tokens.Whitespace(s)(p)),
+    (newline, (s: String, p: LinePos) => tokens.Newline(s)(p)),
     (comment, (s: String, p: LinePos) => tokens.Comment(s)(p)),
     (unknown, (s: String, p: LinePos) => tokens.Unknown(s)(p)))
 
@@ -100,8 +100,8 @@ object Lexer {
   private lazy val comment = "( *#.*\\n)|( *#.*\\r\\n)".r
   private lazy val integer = "(0)|([1-9][0-9]*)".r
   private lazy val newline = "(\\n)|(\\r\\n)".r
-  private lazy val namedId = "[a-zA-Z]\\w*".r
+  private lazy val identifier = "[a-zA-Z]\\w*".r
   private lazy val unknown = "((?s).)".r
-  private lazy val whiteSp = " *".r
+  private lazy val whitespace = " *".r
 
 }

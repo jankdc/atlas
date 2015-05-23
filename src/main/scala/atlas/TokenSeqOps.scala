@@ -14,7 +14,7 @@ object TokenSeqOps {
       for (line <- ts.nonEmptyLines) {
         val pos = line.head.pos
         val num = line.head match {
-          case tokens.WhiteSp(n) => n.length
+          case tokens.Whitespace(n) => n.length
           case otherwise => 0
         }
 
@@ -50,7 +50,7 @@ object TokenSeqOps {
       var remain = ts
 
       while (remain.nonEmpty)
-        remain.span(!_.isInstanceOf[tokens.NewLine]) match {
+        remain.span(!_.isInstanceOf[tokens.Newline]) match {
           case (Seq(),Seq()) =>
             return buffer.toSeq
           case (line, Seq()) =>
@@ -65,6 +65,6 @@ object TokenSeqOps {
     }
 
     def nonEmptyLines: Seq[Seq[Token]] =
-      ts.lines.filter(!_.head.isInstanceOf[tokens.NewLine])
+      ts.lines.filter(!_.head.isInstanceOf[tokens.Newline])
   }
 }

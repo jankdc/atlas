@@ -70,7 +70,7 @@ case class Param(name: String, typename: Node)
   override def toString = s"$name: $typename"
 }
 
-case class NamedId(name: String)
+case class Identifier(name: String)
   (val pos: LinePos) extends Node {
   override def toString = name
 }

@@ -26,7 +26,7 @@ object CodeGen {
    (implicit m: NodeMap): (Seq[String], Int, HeapStore) = n match {
     case n: ast.Integer => gen(n, e)
     case n: ast.Boolean => gen(n, e)
-    case n: ast.NamedId => gen(n, e)
+    case n: ast.Identifier => gen(n, e)
     case n: ast.Let     => gen(n, e)
     case n: ast.Mut     => gen(n, e)
     case n: ast.Fun     => gen(n, e)
@@ -122,7 +122,7 @@ object CodeGen {
     (indexGen :+ call, id2, heap1)
   }
 
-  private def gen(n: ast.NamedId, e: Env)
+  private def gen(n: ast.Identifier, e: Env)
    (implicit m: NodeMap): (Seq[String], Int, HeapStore) = {
     val id0 = e.id
     val atlas.NodeMeta(typeId, Some(sym)) = m.get(n)
@@ -276,7 +276,7 @@ object CodeGen {
     val (valueGen1, id1, heap1) = gen(n.value, e)
 
     val (store, id3, heap2) = (n.value, tpId) match {
-      case (ast.NamedId(_), types.List(_)) =>
+      case (ast.Identifier(_), types.List(_)) =>
         val cname = genCFnName("copy_vector", Seq(tpId), tpId)
         val call = s"%${id1 + 1} = call $cname($tpSt* %$id1)"
         val sstore = s"store $tpSt %${id1 + 1}, $tpSt* %$name"
@@ -343,7 +343,7 @@ object CodeGen {
     val (valueGen1, id1, heap1) = gen(n.value, e)
 
     val (store, id3, heap2) = (n.value, tpId) match {
-      case (ast.NamedId(_), types.List(_)) =>
+      case (ast.Identifier(_), types.List(_)) =>
         val cname = genCFnName("copy_vector", Seq(tpId), tpId)
         val call = s"%${id1 + 1} = call $cname($tpSt* %$id1)"
         val sstore = s"store $tpSt %${id1 + 1}, $tpSt* %$name"

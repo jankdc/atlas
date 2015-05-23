@@ -180,7 +180,7 @@ object Main {
   }
 
   private def toString(t: Token): String = t match {
-    case _: tokens.NewLine => s"${t.pos}: \\n"
+    case _: tokens.Newline => s"${t.pos}: \\n"
     case _                 => s"${t.pos}: ${t.raw}"
   }
 }
