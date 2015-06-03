@@ -2,13 +2,14 @@ package atlas
 
 import atlas.ast.Node
 import atlas.tokens.Token
+import atlas.errors.ParsingError
 import scala.collection.mutable
 
-object Parser {
+object makeASTree {
   type Result = (Seq[Node], Seq[Token])
-  type Parsec = (Seq[Token]) => Result
+  type Parser = (Seq[Token]) => Result
 
-  def mkASTree(ts: Seq[Token]): Node =
+  def apply(ts: Seq[Token]): Node =
     parseTop(ts) match { case (Seq(node), Seq()) => node }
 
   private def parseTop(ts: Seq[Token]): Result = {
@@ -251,7 +252,7 @@ object Parser {
     result
   }
 
-  private def plist(item: Parsec): Parsec =
+  private def plist(item: Parser): Parser =
     (ts: Seq[Token]) => {
       val parenL = key("(")
       val parenR = key(")")
@@ -261,7 +262,7 @@ object Parser {
       (Seq(ast.List(ns)(ts.head.pos)), rm)
     }
 
-  private def dlist(item: Parsec): Parsec =
+  private def dlist(item: Parser): Parser =
     (ts: Seq[Token]) => {
       val indent = one("Indent")
       val dedent = one("Dedent")
@@ -271,7 +272,7 @@ object Parser {
       (Seq(ast.List(ns)(ts.head.pos)), rm)
     }
 
-  private def repPat(p: Parsec, until: String): Parsec =
+  private def repPat(p: Parser, until: String): Parser =
     (ts: Seq[Token]) => {
       val buffer = mutable.Buffer[Node]()
       var remain = ts
@@ -290,7 +291,7 @@ object Parser {
       (buffer.toSeq, remain)
     }
 
-  private def repRaw(p: Parsec, until: String): Parsec =
+  private def repRaw(p: Parser, until: String): Parser =
     (ts: Seq[Token]) => {
       val buffer = mutable.Buffer[Node]()
       var remain = ts
@@ -309,7 +310,7 @@ object Parser {
       (buffer.toSeq, remain)
     }
 
-  private def rep(p: Parsec): Parsec =
+  private def rep(p: Parser): Parser =
     (ts: Seq[Token]) => {
       val buffer = mutable.Buffer[Node]()
       var remain = ts
@@ -322,17 +323,17 @@ object Parser {
         }
       }
       catch {
-        case err: ParserError if remain.length == err.count =>
+        case err: ParsingError if remain.length == err.count =>
           // Do nothing
       }
 
       (buffer.toSeq, remain)
     }
 
-  private def any(msg: String, ps: Parsec*): Parsec =
+  private def any(msg: String, ps: Parser*): Parser =
     (ts: Seq[Token]) => {
       var currentParsed = Option[Result](null)
-      var furthest = ParserError(ts.length, "")
+      var furthest = ParsingError(ts.length, "")
 
       ps.takeWhile(_ => currentParsed == None).foreach {
         parsec =>
@@ -345,9 +346,9 @@ object Parser {
             { currentParsed = Some(parsed) }
         }
         catch {
-          case err: ParserError if err.count < furthest.count =>
+          case err: ParsingError if err.count < furthest.count =>
             furthest = err
-          case err: ParserError =>
+          case err: ParsingError =>
             // Do nothing...
         }
       }
@@ -366,7 +367,7 @@ object Parser {
       }
     }
 
-  private def seq(ps: Parsec*): Parsec =
+  private def seq(ps: Parser*): Parser =
     (ts: Seq[Token]) => {
       ps.foldLeft((Seq[Node](), ts)) {
         case ((nodes, remains), parsec) =>
@@ -375,7 +376,7 @@ object Parser {
       }
     }
 
-  private def eat(ps: Parsec*): Parsec =
+  private def eat(ps: Parser*): Parser =
     (ts: Seq[Token]) => {
       val buffer = mutable.Buffer[Node]()
       var remain = ts
@@ -387,17 +388,17 @@ object Parser {
           remain = rm
         }
         catch {
-          case err: ParserError
+          case err: ParsingError
             if err.count == remain.length =>
               // Do nothing.
-          case err: ParserError =>
+          case err: ParsingError =>
             throw err
         }
 
       (buffer.toSeq, remain)
     }
 
-  private def one(pattern: String): Parsec =
+  private def one(pattern: String): Parser =
     (ts: Seq[Token]) => ts match {
       case h +: rest if h.productPrefix == pattern =>
         (pin(h), rest)
@@ -405,14 +406,12 @@ object Parser {
         throw others.report(pattern)
     }
 
-  private def key(s: String): Parsec =
+  private def key(s: String): Parser =
     (ts: Seq[Token]) => ts match {
-      case tokens.Reserve(`s`) +: rest  =>
+      case tokens.Reserved(`s`) +: rest  =>
         if (s == "pass")
           (Seq(ast.Nop()(ts.head.pos)), rest)
-        else if (s == "+=" || s == "=")
-          (Seq(ast.Operator(s)(ts.head.pos)), rest)
-        else if (precedenceMap contains s)
+        else if (s == "+=" || s == "=" || precedenceMap.contains(s))
           (Seq(ast.Operator(s)(ts.head.pos)), rest)
         else
           (Seq(), rest)
@@ -422,26 +421,26 @@ object Parser {
 
   private def pin(t: Token): Seq[Node] = t match {
     case tokens.Identifier(n) => Seq(ast.Identifier(n)(t.pos))
-    case tokens.Integer(n) => Seq(ast.Integer(n.toInt)(t.pos))
-    case tokens.Boolean(n) => Seq(ast.Boolean(n.toBoolean)(t.pos))
+    case tokens.Integer(n)    => Seq(ast.Integer(n.toInt)(t.pos))
+    case tokens.Boolean(n)    => Seq(ast.Boolean(n.toBoolean)(t.pos))
     case others => Seq()
   }
 
   private val precedenceMap = Map(
-    ("!"  -> 0),
+    ("!"   -> 0),
     ("and" -> 10),
-    ("or" -> 10),
-    ("==" -> 20),
-    ("!=" -> 20),
-    ("+"  -> 30),
-    ("-"  -> 30),
-    (">"  -> 40),
-    ("<"  -> 40),
-    ("<=" -> 40),
-    (">=" -> 40),
-    ("*"  -> 50),
-    ("%"  -> 50),
-    ("/"  -> 50))
+    ("or"  -> 10),
+    ("=="  -> 20),
+    ("!="  -> 20),
+    ("+"   -> 30),
+    ("-"   -> 30),
+    (">"   -> 40),
+    ("<"   -> 40),
+    ("<="  -> 40),
+    (">="  -> 40),
+    ("*"   -> 50),
+    ("%"   -> 50),
+    ("/"   -> 50))
 
   private def sortExpr(s: Seq[Node], n: Node, m: Int): (Node, Seq[Node]) =
     s match {
@@ -470,15 +469,15 @@ object Parser {
     }
 
   private implicit class NodeOps(val ts: Seq[Token]) {
-    def report(s: String): ParserError =
+    def report(s: String): ParsingError =
       ts.headOption match {
         case Some(t) =>
           val e = if (t.raw == "\n") "\\n" else t.raw
           val m = s"${t.pos}: Expected $s but got '$e'."
-          ParserError(ts.length, m)
+          ParsingError(ts.length, m)
         case None =>
           val m = s"Expected $s, but reached end of file."
-          ParserError(ts.length, m)
+          ParsingError(ts.length, m)
       }
   }
 }

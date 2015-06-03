@@ -2,12 +2,13 @@ package atlas
 
 import atlas.ast.Node
 import atlas.types.Type
+import atlas.errors.TypingError
 
-object TypeSystem {
+object collectTypes {
   case class Env(archive: NodeMap, context: Context)
   case class Scope(name: String = "", level: Int = 0)
 
-  def collectTypes(c: Context, n: Node): NodeMap = {
+  def apply(c: Context, n: Node): NodeMap = {
     val env = Env(NodeMap(Map()), c)
     check(env, Scope(), n) match { case (e, _) => e.archive }
   }
@@ -84,10 +85,10 @@ object TypeSystem {
     val intTp = types.Var("Int")
 
     if (ft != intTp)
-      throw TypeError(s"${n.from.pos}: Expected $intTp but found $ft")
+      throw TypingError(s"${n.from.pos}: Expected $intTp but found $ft")
 
     if (tt != intTp)
-      throw TypeError(s"${n.to.pos}: Expected $intTp but found $tt")
+      throw TypingError(s"${n.to.pos}: Expected $intTp but found $tt")
 
     val c = e1.context.addDef(sm, intTp)
     val v = NodeMeta(types.Var("Unit"), Some(sm))
@@ -105,7 +106,7 @@ object TypeSystem {
     val (sym, tn) = e.context.getDef(n.name, n.pos)
 
     if (sym.isConstant)
-      throw TypeError(s"${n.pos}: ${n.name} is immutable and cannot be assigned.")
+      throw TypingError(s"${n.pos}: ${n.name} is immutable and cannot be assigned.")
 
     val sn = s.name + n.name + "_"
     val (e1, tv) = check(e, s.copy(name = sn), n.value)
@@ -113,10 +114,10 @@ object TypeSystem {
     (tn, n.op, tv) match {
       case (types.List(item), "+=", tv) =>
         if (item != tv)
-          throw TypeError(s"${n.value.pos}: Expected $item but found $tv")
+          throw TypingError(s"${n.value.pos}: Expected $item but found $tv")
       case _ =>
         if (tn != tv)
-          throw TypeError(s"${n.value.pos}: Expected $tn but found $tv")
+          throw TypingError(s"${n.value.pos}: Expected $tn but found $tv")
     }
 
     val t = types.Var("Unit")
@@ -129,19 +130,19 @@ object TypeSystem {
     val (sym, tn) = e.context.getDef(n.name, n.pos)
 
     if (sym.isConstant)
-      throw TypeError(s"${n.pos}: ${n.name} is immutable and cannot be assigned.")
+      throw TypingError(s"${n.pos}: ${n.name} is immutable and cannot be assigned.")
 
     val sn = s.name + n.name + "_"
     val (e1, tv) = check(e,  s.copy(name = sn), n.value)
     val (e2, ip) = check(e1, s.copy(name = sn), n.index)
 
     if (ip != types.Var("Int"))
-      throw TypeError(s"${n.index.pos}: Expected Int but found $ip")
+      throw TypingError(s"${n.index.pos}: Expected Int but found $ip")
 
     (tn, n.op, tv) match {
       case (types.List(item), "=", tv) =>
         if (item != tv)
-          throw TypeError(s"${n.value.pos}: Expected $item but found $tv")
+          throw TypingError(s"${n.value.pos}: Expected $item but found $tv")
       case _ => ???
     }
 
@@ -186,7 +187,7 @@ object TypeSystem {
     val e4 = e3.copy(archive = e3.archive.add(n.ret, NodeMeta(rt, Some(sm))))
 
     if (bt != rt) {
-      throw TypeError(s"${n.body.last.pos}: Expected $rt but found $bt")
+      throw TypingError(s"${n.body.last.pos}: Expected $rt but found $bt")
     }
 
     (e4.copy(context = e.context), types.Var("Unit"))
@@ -210,7 +211,7 @@ object TypeSystem {
     val e2 = n.nodes.foldLeft(e1) { case (e, n) =>
       val (e1, t2) = check(e, s, n)
       if (t1 != t2)
-        throw TypeError(s"${n.pos}: Expected $t1 but found $t2")
+        throw TypingError(s"${n.pos}: Expected $t1 but found $t2")
       e1
     }
 
@@ -244,28 +245,28 @@ object TypeSystem {
       case "+" | "-" | "/" | "*" | "%" =>
         val exp = types.Var("Int")
         if (lhs != exp)
-          throw TypeError(s"${n.lhs.pos}: Expected $exp but found $lhs")
+          throw TypingError(s"${n.lhs.pos}: Expected $exp but found $lhs")
         if (rhs != exp)
-          throw TypeError(s"${n.rhs.pos}: Expected $exp but found $rhs")
+          throw TypingError(s"${n.rhs.pos}: Expected $exp but found $rhs")
         exp
       case "==" | "!=" =>
         val exp = types.Var("Boolean")
         if (lhs != rhs)
-          throw TypeError(s"${n.lhs.pos}: Expected $lhs but found $rhs")
+          throw TypingError(s"${n.lhs.pos}: Expected $lhs but found $rhs")
         exp
       case "<" | ">" | "<=" | ">=" =>
         val exp = types.Var("Boolean")
         if (lhs != types.Var("Int"))
-          throw TypeError(s"${n.lhs.pos}: Expected $exp but found $lhs")
+          throw TypingError(s"${n.lhs.pos}: Expected $exp but found $lhs")
         if (rhs != types.Var("Int"))
-          throw TypeError(s"${n.rhs.pos}: Expected $exp but found $rhs")
+          throw TypingError(s"${n.rhs.pos}: Expected $exp but found $rhs")
         exp
       case "or" | "and" =>
         val exp = types.Var("Boolean")
         if (lhs != exp)
-          throw TypeError(s"${n.lhs.pos}: Expected $exp but found $lhs")
+          throw TypingError(s"${n.lhs.pos}: Expected $exp but found $lhs")
         if (rhs != exp)
-          throw TypeError(s"${n.rhs.pos}: Expected $exp but found $rhs")
+          throw TypingError(s"${n.rhs.pos}: Expected $exp but found $rhs")
         exp
     }
 
@@ -281,12 +282,12 @@ object TypeSystem {
       case "-" =>
         val exp = types.Var("Int")
         if (rhs != exp)
-          throw TypeError(s"${n.rhs.pos}: Expected $exp but found $rhs")
+          throw TypingError(s"${n.rhs.pos}: Expected $exp but found $rhs")
         exp
       case "!" =>
         val exp = types.Var("Boolean")
         if (rhs != exp)
-          throw TypeError(s"${n.rhs.pos}: Expected $exp but found $rhs")
+          throw TypingError(s"${n.rhs.pos}: Expected $exp but found $rhs")
         exp
       case _ => ???
     }
@@ -302,7 +303,7 @@ object TypeSystem {
     val (e1, t3) = check(e, s.copy(name = s1), n.value)
 
     if (t2 != t3)
-      throw TypeError(s"${n.pos}: Expected $t2 but found $t3")
+      throw TypingError(s"${n.pos}: Expected $t2 but found $t3")
 
     val v = NodeMeta(t1, Some(sm))
     ((e1.copy(archive = e1.archive.add(n, v))), t1)
@@ -315,7 +316,7 @@ object TypeSystem {
     val (e1, catype) = check(e, s, n.cond)
 
     if (catype != cetype)
-      throw TypeError(s"${n.cond.pos}: Expected $cetype but found $catype")
+      throw TypingError(s"${n.cond.pos}: Expected $cetype but found $catype")
 
     val e2 = n.body.foldLeft(e1) { case (e, n) => collect(e, newScope, n) }
 
@@ -370,7 +371,7 @@ object TypeSystem {
     val (e1, catype) = check(e, s, n.cond)
 
     if (catype != cetype)
-      throw TypeError(s"${n.cond.pos}: Expected $cetype but found $catype")
+      throw TypingError(s"${n.cond.pos}: Expected $cetype but found $catype")
 
     val e2 = n.body.foldLeft(e1) { case (e, n) => collect(e, newScope, n) }
 
@@ -393,7 +394,7 @@ object TypeSystem {
     val (e1, catype) = check(e, s, n.cond)
 
     if (catype != cetype)
-      throw TypeError(s"${n.cond.pos}: Expected $cetype but found $catype")
+      throw TypingError(s"${n.cond.pos}: Expected $cetype but found $catype")
 
     val e2 = n.body.foldLeft(e1) { case (e, n) => collect(e, newScope, n) }
 
@@ -414,7 +415,7 @@ object TypeSystem {
     val e1 = n.args.foldLeft(e) { case (e, arg) =>
       val (newEnv, argTp) = check(e, s, arg)
       if (tp != argTp)
-        throw TypeError(s"${arg.pos}: Expected $tp but found $argTp")
+        throw TypingError(s"${arg.pos}: Expected $tp but found $argTp")
 
       newEnv
     }
@@ -431,7 +432,7 @@ object TypeSystem {
       case types.List(_) =>
         val (newEnv, acc) = check(e, s, n.arg)
         if (acc != types.Var("Int"))
-          throw TypeError(s"${n.pos}: Expected Int but found $acc")
+          throw TypingError(s"${n.pos}: Expected Int but found $acc")
         newEnv
       case _ =>
         ???

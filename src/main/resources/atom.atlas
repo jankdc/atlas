@@ -2,7 +2,7 @@
 # I'm proud that no memory leaks have occured!
 
 fn main(): Unit
-  println(merge_sort([Int](3, 4, 2, 1, 5)))
+  println(fibonacci(10))
 
 fn some1(): [Int]
   some()

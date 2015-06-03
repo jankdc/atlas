@@ -2,9 +2,10 @@ package atlas
 
 import atlas.ast.Node
 import atlas.types.Type
+import atlas.errors.{MissingError, CodeGenError}
 import scala.collection.mutable
 
-object CodeGen {
+object genLLVM {
   type Store = Map[String, Int]
   private def Store(): Store = Map[String, Int]()
 
@@ -18,7 +19,7 @@ object CodeGen {
 
   case class Env(id: Int, store: Store, debugMode: Boolean)
 
-  def genLLVM(n: Node, debugMode: Boolean = false)
+  def apply(n: Node, debugMode: Boolean = false)
    (implicit m: NodeMap): Seq[String] =
     gen(n, Env(1, Map(), debugMode)) match { case (s, _, _) => s }
 
@@ -1803,7 +1804,7 @@ object CodeGen {
       case types.List(types.Var(s)) => s"%struct.Vector$s"
       case tp@types.List(types.List(_)) =>
         val msg = s": LLVM Code Generation for $tp is currently not supported yet! Please refer to the documentation."
-        throw NotImplementedFeature(msg)
+        throw MissingError(msg)
       case _ => ???
     }
 
@@ -1817,7 +1818,7 @@ object CodeGen {
         pref + base
       case tp@types.List(types.List(_)) =>
         val msg = s": LLVM Code Generation for $tp is currently not supported yet! Please refer to the documentation."
-        throw NotImplementedFeature(msg)
+        throw MissingError(msg)
       case _ => ???
     }
   }

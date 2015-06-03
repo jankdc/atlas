@@ -1,19 +1,15 @@
 package atlas
 
-import atlas.Lexer.mkTokens
-import atlas.Parser.mkASTree
-import atlas.TypeSystem.collectTypes
-import atlas.PartialEvaluator.partEval
-import atlas.CodeGen.genLLVM
 import atlas.tokens.Token
+import atlas.errors._
 import scala.io.Source
 import scala.sys.process._
-import scala.collection.mutable
-import java.io.{File, FileWriter, BufferedWriter}
+import java.io.{ File, FileWriter, BufferedWriter }
 
 object Main {
   // Command Line Outputs
   lazy val tooManyArguments = "atlas: error: too many arguments"
+
   lazy val usage = Seq(
     "USAGE: atlas [option] <src-file>                             ",
     "                                                             ",
@@ -22,34 +18,35 @@ object Main {
     .mkString("\n")
 
   // Built-in Compiler Features.
-  lazy val buildInTps = Set("Unit", "Int", "Boolean")
-  lazy val builtInFns =
-   Map(buildFnSym("println", Seq("Int")) -> types.Var("Unit"),
-       buildFnSym("println", Seq("Boolean")) -> types.Var("Unit"),
-       buildFnSym("println", Seq("[Int]")) -> types.Var("Unit"),
-       buildFnSym("println", Seq("[Boolean]")) -> types.Var("Unit"),
-       buildFnSym("len", Seq("[Int]")) -> types.Var("Int"),
-       buildFnSym("len", Seq("[Boolean]")) -> types.Var("Int"))
+  lazy val builtinTypes = Set("Unit", "Int", "Boolean")
+
+  lazy val builtinDefns = Map(
+      buildFnSym("println", Seq("Int"))        -> types.Var("Unit"),
+      buildFnSym("println", Seq("Boolean"))    -> types.Var("Unit"),
+      buildFnSym("println", Seq("[Int]"))      -> types.Var("Unit"),
+      buildFnSym("println", Seq("[Boolean]"))  -> types.Var("Unit"),
+      buildFnSym("len",     Seq("[Int]"))      -> types.Var("Int"),
+      buildFnSym("len",     Seq("[Boolean]"))  -> types.Var("Int"))
 
   def main(args: Array[String]): Unit = {
-    // debugCompiler(verbose = false)
+    debugCompiler(verbose = false)
     processCmd(args)
   }
 
   private def debugCompiler(verbose: Boolean): Unit = try {
     val stream = Source.fromURL(getClass().getResource("/atom.atlas"))
     val source = stream.mkString
-    val tokens = mkTokens(source)
+    val tokens = makeTokens(source)
 
     if (verbose) {
       println("Tokens:")
       println(tokens.map(toString(_)).mkString("\n"))
     }
 
-    val astree = mkASTree(tokens)
-    val context = Context(buildInTps, builtInFns)
-    val _ = collectTypes(context, astree)
-    val petree = partEval(astree)
+    val astree  = makeASTree(tokens)
+    val context = Context(builtinTypes, builtinDefns)
+    val _       = collectTypes(context, astree)
+    val petree  = partEval(astree)
     val nodeMap = collectTypes(context, petree)
 
     if (verbose) {
@@ -57,7 +54,7 @@ object Main {
       println(petree)
     }
 
-    val genCode = genLLVM(petree, true)(nodeMap)
+    val genCode   = genLLVM(petree, true)(nodeMap)
     val genString = genCode.mkString("\n")
 
     if (verbose) {
@@ -77,13 +74,7 @@ object Main {
      valgrind).!
   }
   catch {
-    case err: ParserError =>
-      println(s"[error]${err.getMessage}")
-    case err: TypeError =>
-      println(s"[error]${err.getMessage}")
-    case err: CodeGenError =>
-      println(s"[error]${err.getMessage}")
-    case err: NotImplementedFeature =>
+    case err: AtlasError =>
       println(s"[error]${err.getMessage}")
     case err: java.io.FileNotFoundException =>
       println(s"${err.getMessage}\n")
@@ -112,10 +103,10 @@ object Main {
       val filePath = new File(srcPath)
       val stream = Source.fromFile(filePath)
       val source = stream.mkString
-      val tokens = mkTokens(source)
-      val astree = mkASTree(tokens)
+      val tokens = makeTokens(source)
+      val astree = makeASTree(tokens)
       val petree = partEval(astree)
-      val context = Context(buildInTps, builtInFns)
+      val context = Context(builtinTypes, builtinDefns)
       val nodeMap = collectTypes(context, petree)
       val genCode = genLLVM(petree, debugMode)(nodeMap)
       val genString = genCode.mkString("\n")
@@ -126,22 +117,11 @@ object Main {
       output.write(genString)
       output.close()
 
-
-
     (buildLLC(fullnm, prefix) #&&
      buildLinker(prefix + ".o", prefix)).!
     }
     catch {
-      case err: ParserError =>
-        println(s"[error]${err.getMessage}")
-        System.exit(-1)
-      case err: TypeError =>
-        println(s"[error]${err.getMessage}")
-        System.exit(-1)
-      case err: CodeGenError =>
-        println(s"[error]${err.getMessage}")
-        System.exit(-1)
-      case err: NotImplementedFeature =>
+      case err: AtlasError =>
         println(s"[error]${err.getMessage}")
         System.exit(-1)
       case err: java.io.FileNotFoundException =>
@@ -175,7 +155,7 @@ object Main {
       case "linux"  =>
         s"c++ -o $dst $src"
       case os =>
-        throw NotImplementedFeature(s"$os is currently not supported.")
+        throw MissingError(s"$os is currently not supported.")
     }
   }
 
